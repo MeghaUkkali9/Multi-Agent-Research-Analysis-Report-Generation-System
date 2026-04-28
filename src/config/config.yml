@@ -1,0 +1,24 @@
+embedding_model:
+  model: "text-embedding-3-small"
+  provider: "openai"
+
+llm:
+  openai:
+    model_name: "gpt-4o-mini"
+    provider: "openai"
+    temperature: 0
+    max_output_tokens: 1000
+
+  groq:
+    provider: "groq"
+    model_name: "deepseek-r1-distill-llama-70b"
+    temperature: 0
+    max_tokens: 2048
+
+retriever:
+  top_k: 5
+  search_type: "similarity"
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 300
