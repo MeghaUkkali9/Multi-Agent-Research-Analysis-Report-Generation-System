@@ -1,1 +1,4 @@
 note/
+logs/
+.env
+multi_agent_research_analysis_report_generation_system.egg-info
