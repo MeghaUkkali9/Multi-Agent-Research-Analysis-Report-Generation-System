@@ -28,7 +28,7 @@ uv pip install -r requirements.txt
 
 ---
 
-### 4. Install Project as Package (IMPORTANT)
+### 4. Install Project as Package 
 
 ```bash
 pip install -e .
