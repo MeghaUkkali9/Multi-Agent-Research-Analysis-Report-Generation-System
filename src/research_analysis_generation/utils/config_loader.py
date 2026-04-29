@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import yaml
+from research_analysis_generation.exception.custom_exception import ResearchAnalysisException
 
 def load_config(config_path: str | None = None):
     try:
@@ -8,7 +9,7 @@ def load_config(config_path: str | None = None):
         config_path = (
             config_path
             or os.getenv("CONFIG_PATH")
-            or str(_parent_root() / "config.yaml")
+            or str(_default_config_path())
         )
 
         path = Path(config_path)
@@ -20,8 +21,8 @@ def load_config(config_path: str | None = None):
             return yaml.safe_load(file) or {}
 
     except Exception as e:
-        raise RuntimeError(f"Failed to load config: {e}") from e
+        raise ResearchAnalysisException(f"Failed to load config: {e}") from e
 
 
-def _parent_root():
-    return Path(__file__).resolve().parents[1]
+def _default_config_path():
+    return Path(__file__).resolve().parents[1] / "config" / "config.yml"
