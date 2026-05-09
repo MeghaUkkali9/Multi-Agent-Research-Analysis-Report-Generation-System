@@ -38,30 +38,25 @@ class SearchQuery(BaseModel):
     )
 
 class GenerateAnalystsState(TypedDict):
-    topic: str  # Research topic
-    max_analysts: int  # Number of analysts to generate
-    human_analyst_feedback: str  # Feedback from human
-    analysts: NotRequired[List[Analyst]]  # Generated analysts
+    topic: str  
+    max_analysts: int 
+    human_analyst_feedback: str  
+    analysts: NotRequired[List[Analyst]]  
 
 
 class InterviewState(MessagesState):
-    max_num_turns: int  # Max interview turns allowed
-    context: Annotated[List[str], operator.add]  # Retrieved/search context
-    analyst: Analyst  # Analyst conducting interview
-    interview: str  # Full interview transcript (flattened)
-    sections: List[Section]  # Sections generated from interview
-
+    max_num_turns: int  
+    context: Annotated[List[str], operator.add]  
+    analyst: Analyst  
+    interview: str 
+    sections: List[Section] 
 
 class ResearchGraphState(TypedDict):
-    topic: str  # Research topic
-    max_analysts: int  # Number of analysts
-    human_analyst_feedback: str  # Optional human feedback
-    analysts: List[Analyst]  # All analysts involved
-
-    # Aggregated sections across analysts
+    topic: str  
+    max_analysts: int  
+    human_analyst_feedback: str  
+    analysts: List[Analyst] 
     sections: Annotated[List[Section], operator.add]
-
-    # Final report components
     introduction: str
     content: str
     conclusion: str
