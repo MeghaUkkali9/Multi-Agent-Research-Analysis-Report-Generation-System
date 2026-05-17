@@ -5,7 +5,6 @@ from research_analysis_generation.exception.custom_exception import ResearchAnal
 
 def load_config(config_path: str | None = None):
     try:
-        # Priority: function argument > ENV variable > default path
         config_path = (
             config_path
             or os.getenv("CONFIG_PATH")
