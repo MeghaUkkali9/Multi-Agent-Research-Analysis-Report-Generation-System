@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.messages import get_buffer_string
 from langchain_community.tools.tavily_search import TavilySearchResults
+import re
 
 from docx import Document
 from reportlab.lib.pagesizes import letter
@@ -153,17 +154,152 @@ class ReportGenerator:
             self.logger.error(f"Error writing report: {e}")
             raise ResearchAnalysisException("Failed to write report", e)
     
-    def finalize_report(self):
-        pass
+    def finalize_report(self, state: ResearchGraphState):
+        """
+        Finalizes the report by assembling all the sections, introduction, content and conclusion into a cohesive final report. 
+        """
+        try:
+            self.logger.info("Finalizing report by assembling all sections, introduction, and conclusion.")
+            content = state.get("content", "")
+            
+            if content.startswith("## Insights"):
+                content = content.replace("## Insights", "").strip()
+                
+            sources = None
+            
+            if "## Sources" in content:
+                try:
+                    content, sources = content.split("\n## Sources\n")
+                except Exception as e:
+                    self.logger.warning(f"Failed to extract sources from content: {e}")
+                    sources = None
+                    
+            final_report = (
+                state["introduction"] + "\n\n" +
+                content + "\n\n" +
+                state["conclusion"]
+            )
+            
+            if sources:
+                final_report += "\n\n## Sources\n" + sources
+                
+            self.logger.info("Report successfully finalized.")
+            return {"final_report": final_report}
+        except Exception as e:
+            self.logger.error(f"Error finalizing report: {e}")
+            raise ResearchAnalysisException("Failed to finalize report", e)
     
-    def save_report(self):
-        pass
-    
-    def __save_as_docx(self):
-        pass
-    
-    def __save_as_pdf(self):
-        pass
+    def save_report(self, final_report: str, topic: str, format: str = "docx"):
+        """Save the report as DOCX or PDF, each in its own subfolder."""
+        try:
+            self.logger.info("Saving report", topic=topic, format=format)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_topic = re.sub(r'[\\/*?:"<>|]', "_", topic)
+            base_name = f"{safe_topic.replace(' ', '_')}_{timestamp}"
+
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+            root_dir = os.path.join(project_root, "generated_report")
+
+            report_folder = os.path.join(root_dir, base_name)
+            os.makedirs(report_folder, exist_ok=True)
+
+            file_path = os.path.join(report_folder, f"{base_name}.{format}")
+
+            if format == "docx":
+                self.__save_as_docx(final_report, file_path)
+            elif format == "pdf":
+                self.__save_as_pdf(final_report, file_path)
+            else:
+                raise ValueError("Invalid format. Use 'docx' or 'pdf'.")
+
+            self.logger.info("Report saved successfully", path=file_path)
+            return file_path
+
+        except Exception as e:
+            self.logger.error("Error saving report", error=str(e))
+            raise ResearchAnalysisException("Failed to save report file", e)
+
+    def __save_as_docx(self, text: str, file_path: str):
+        """Save as DOCX."""
+        try:
+            doc = Document()
+            for line in text.split("\n"):
+                if line.startswith("# "):
+                    doc.add_heading(line[2:], level=1)
+                elif line.startswith("## "):
+                    doc.add_heading(line[3:], level=2)
+                elif line.startswith("### "):
+                    doc.add_heading(line[4:], level=3)
+                else:
+                    doc.add_paragraph(line)
+            doc.save(file_path)
+        except Exception as e:
+            self.logger.error("DOCX save failed", path=file_path, error=str(e))
+            raise ResearchAnalysisException("Error saving DOCX report", e)
+
+    def __save_as_pdf(self, text: str, file_path: str):
+        """Save as PDF with centered text block, wrapping, and clean layout."""
+        from textwrap import wrap
+        try:
+            c = canvas.Canvas(file_path, pagesize=letter)
+            width, height = letter
+
+            left_margin = 80
+            right_margin = 80
+            usable_width = width - left_margin - right_margin
+            top_margin = 70
+            bottom_margin = 60
+            y = height - top_margin
+
+            normal_font = "Helvetica"
+            bold_font = "Helvetica-Bold"
+            line_height = 15
+
+            lines = text.split("\n")
+            for raw_line in lines:
+                line = raw_line.strip()
+                if not line:
+                    y -= line_height
+                    continue
+
+                if line.startswith("# "):
+                    font = bold_font
+                    size = 16
+                    line = line[2:].strip()
+                elif line.startswith("## "):
+                    font = bold_font
+                    size = 13
+                    line = line[3:].strip()
+                else:
+                    font = normal_font
+                    size = 11
+
+                c.setFont(font, size)
+                wrapped_lines = wrap(line, width=int(usable_width / (size * 0.55)))
+
+                for wline in wrapped_lines:
+                    if y < bottom_margin:
+                        c.showPage()
+                        c.setFont(font, size)
+                        y = height - top_margin
+
+                    text_width = c.stringWidth(wline, font, size)
+                    x = (width - text_width) / 2 
+
+                    c.drawString(x, y, wline)
+                    y -= line_height
+
+            for page_num in range(1, c.getPageNumber() + 1):
+                c.setFont("Helvetica", 9)
+                c.drawCentredString(width / 2, 25, f"Page {page_num}")
+
+            c.save()
+            self.logger.info("Centered PDF saved successfully", path=file_path)
+
+        except Exception as e:
+            self.logger.error("PDF save failed", path=file_path, error=str(e))
+            raise ResearchAnalysisException("Error saving PDF report", e)
     
     def initiate_all_interviews(self, state: ResearchGraphState):
         topic = state.get("topic", "Untitled Topic")
