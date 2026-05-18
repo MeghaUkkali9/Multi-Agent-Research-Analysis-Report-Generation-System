@@ -25,6 +25,15 @@ from research_analysis_generation.schema.model import (
 from research_analysis_generation.utils.api_key_manager import ApiKeyManager
 from research_analysis_generation.logger import GLOBAL_LOGGER
 from research_analysis_generation.utils.model_loader import ModelLoader
+from research_analysis_generation.prompt_lib.prompt import (
+    CREATE_ANALYSTS_PROMPT,
+    WRITE_INTRODUCTION_PROMPT,
+    WRITE_CONCLUSION_PROMPT,
+    WRITE_REPORT_PROMPT,
+    FINALIZE_REPORT_PROMPT,
+    REPORT_WRITER_INSTRUCTIONS,
+    INTRO_CONCLUSION_INSTRUCTIONS
+)
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, "../../"))
@@ -38,20 +47,111 @@ class ReportGenerator:
         
         self.tavily_search = TavilySearchResults(api_key=ApiKeyManager().get("TAVILY_API_KEY"))
     
-    def create_analyst(self):
-        pass
-    
+    def create_analyst(self, state: GenerateAnalystsState):
+        topic = state["topic"]
+        max_analysts = state["max_analysts"]
+        human_analyst_feedback = state.get("human_analyst_feedback", "")
+        try:
+            self.logger.info(f"Creating analysts for topic: {topic} with max analysts: {max_analysts}")
+            
+            structured_llm = self.llm.with_structured_output(Perspectives)
+            system_message = CREATE_ANALYSTS_PROMPT.render(
+                topic= topic,
+                human_analyst_feedback= human_analyst_feedback,
+                max_analysts= max_analysts
+            )
+            analysts = structured_llm.invoke([
+                SystemMessage(content= system_message),
+                HumanMessage(content= "create a list of analysts")
+            ])
+            return {
+                "analysts": analysts.analysts
+                }
+        except Exception as e:
+            self.logger.error(f"Error creating analysts: {e}")
+            raise ResearchAnalysisException("Failed to create analysts", e)
+        
     def human_feedback(self):
-        pass
+        """This node is a placeholder for human feedback. It does not perform any operations itself, but serves as an interruption point in the graph where human feedback can be collected and added to the state before proceeding with the report generation process.
+        """
+        try:
+            self.logger.info("Reached human feedback node. Awaiting human feedback before proceeding.")
+        except Exception as e:
+            self.logger.error(f"Error in human feedback node: {e}")
+            raise ResearchAnalysisException("Failed at human feedback node", e)
     
-    def write_introduction(self):
-        pass
+    def write_introduction(self, state: ResearchGraphState):
+        """
+        Writes the introduction section of the report. 
+        This is a placeholder function that can be expanded in the future to generate an introduction based on the topic and sections of the report. Currently, it does not perform any operations.
+        """
+        try:
+            sections = state.get("sections", [])
+            topic = state.get("topic", [])
+            formatted_sections = "\n\n".join([f"{s}" for s in sections])
+            
+            self.logger.info(f"Writing introduction for topic: {topic} with sections: {sections}")  
+            
+            system_prompt = INTRO_CONCLUSION_INSTRUCTIONS.render(
+                topic=topic,
+                formatted_sections= formatted_sections)
+            
+            introduction = self.llm.invoke([
+                SystemMessage(content= system_prompt),
+                HumanMessage(content="Write the introduction section for the report based on the provided sections.")])
+            
+            self.logger.info("Introduction successfully written.")
+            return {"introduction": introduction.content}
+        except Exception as e:
+            self.logger.error(f"Error writing introduction: {e}")
+            raise ResearchAnalysisException("Failed to write introduction", e)
     
-    def write_conclusion(self):
-        pass
+    def write_conclusion(self, state: ResearchGraphState):
+        """ Writes the conclusion section of the report."""
+        try:
+            sections = state["sections"]
+            topic = state["topic"]
+            formatted_sections = "\n\n".join([f"{s}" for s in sections])
+            
+            self.logger.info(f"Writing conclusion for topic: {topic} with sections: {sections}")
+            
+            system_prompt = INTRO_CONCLUSION_INSTRUCTIONS.render(
+                topic=topic,
+                formatted_sections= formatted_sections)
+            
+            conclustion = self.llm.invoke([
+                SystemMessage(content= system_prompt),
+                HumanMessage(content="Write the conclusion section for the report based on the provided sections.")])       
+            
+            self.logger.info("Conclusion successfully written.")
+            return {"conclusion": conclustion.content}
+        except Exception as e:
+            self.logger.error(f"Error writing conclusion: {e}")
+            raise ResearchAnalysisException("Failed to write conclusion", e)
     
-    def write_report(self):
-        pass
+    def write_report(self, state: ResearchGraphState):
+        sections = state.get("sections", [])
+        topic = state.get("topic", "")
+        
+        try:
+            if not sections:
+                sections = ["No sections available."]
+                self.logger.warning("No sections found in state for report writing.")       
+            self.logger.info(f"Writing report for topic: {topic} with sections: {sections}")
+            
+            system_prompt = REPORT_WRITER_INSTRUCTIONS.render(topic=topic)
+            self.logger.debug(f"System prompt for report writing: {system_prompt}")
+            
+            report = self.llm.invoke([
+                SystemMessage(content= system_prompt),
+                HumanMessage(content="\n\n".join(sections))
+            ])
+            self.logger.info("Report successfully written.")
+            return {"report": report.content}
+        
+        except Exception as e:
+            self.logger.error(f"Error writing report: {e}")
+            raise ResearchAnalysisException("Failed to write report", e)
     
     def finalize_report(self):
         pass

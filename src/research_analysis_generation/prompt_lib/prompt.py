@@ -230,8 +230,8 @@ For your conclusion:
 - Use ## Conclusion as the section header.
 
 Here are the sections to reflect on for writing:
-{% if formatted_str_sections %}
-{{ formatted_str_sections }}
+{% if formatted_sections %}
+{{ formatted_sections }}
 {% else %}
 [No sections provided — summarize the overall theme instead.]
 {% endif %}
