@@ -88,14 +88,62 @@ class InterviewGraphBuilder:
             self.logger.error(f"Error during web search: {e}")
             raise ResearchAnalysisException("Failed during web search", e)
     
-    def generate_answer(state: InterviewState):
-        pass
+    def generate_answer(self, state: InterviewState):
+        """Generate an answer from the expert based on the question and retrieved context.
+        """
+        try:
+            analyst = state["analyst"]
+            messages = state["messages"]
+            context = state.get("context", ["No context available"])
+            
+            self.logger.info("Generating answer for expert", analyst=analyst.name)
+            system_prompt = GENERATE_ANSWERS.render(goals=analyst.persona, context = context)
+            answer = self.llm.invoke([
+                SystemMessage(content=system_prompt) + messages
+            ])
+            answer.name = "expert"
+            self.logger.info("Generated answer", answer=answer.content[:200])
+            
+            return {"messages": [answer]}
+        except Exception as e:
+            self.logger.error(f"Error generating answer: {e}")
+            raise ResearchAnalysisException("Failed to generate answer", e)
     
-    def save_transcript(state:InterviewState):
-        pass
-    
-    def write_section(state:InterviewState):
-        pass
+    def save_transcript(self, state:InterviewState):
+        """
+        Save the current interview transcript to memory for future reference and context.
+        """
+        try:
+            messages = state["messages"]
+            interview_transcript = get_buffer_string(messages)
+            self.logger.info("Saving interview transcript to memory", transcript_length=len(interview_transcript))
+            return {"interview": interview_transcript}
+        except Exception as e:
+            self.logger.error(f"Error saving transcript: {e}")
+            raise ResearchAnalysisException("Failed to save transcript", e) 
+        
+    def write_section(self, state:InterviewState):
+        """
+        Wrie a summarized report section based on the interview transcript and goals.
+        """
+        try:
+            context = state.get("context", ["No context available"])
+            analyst = state["analyst"]
+            
+            self.logger.info("Writing report section based on interview and context", analyst=analyst.name)
+            system_prompt = WRITE_SECTION.render(goals=analyst.description)
+            
+            section = self.llm.invoke([
+                SystemMessage(content=system_prompt) +
+                HumanMessage(content=context)
+            ])
+            
+            self.logger.info("Generated report section", section=section.content[:200])
+            return {"sections": section.content}
+        
+        except Exception as e:
+            self.logger.error(f"Error writing report section: {e}")
+            raise ResearchAnalysisException("Failed to write report section", e)
     
     def build_graph(self):
         """
