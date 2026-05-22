@@ -5,7 +5,7 @@ from langchain_core.messages import get_buffer_string
 
 from research_analysis_generation.logger import GLOBAL_LOGGER
 from research_analysis_generation.exception.custom_exception import ResearchAnalysisException
-from research_analysis_generation.schema.model import InterviewState, SearchQuery
+from research_analysis_generation.schema.model import InterviewState, SearchQuery, Section
 from research_analysis_generation.prompt_lib.prompt import (
     ANALYST_ASK_QUESTIONS,
     GENERATE_SEARCH_QUERY,
@@ -39,55 +39,99 @@ class InterviewGraphBuilder:
         try:
             analyst = state["analyst"]
             messages = state["messages"]
-            
-            self.logger.info("Generating question for expert", analyst=analyst.name)
-            system_prompt = ANALYST_ASK_QUESTIONS.render(goals=analyst.persona)
-            
-            question = self.llm.invoke([
-                SystemMessage(content=system_prompt) + messages
-            ])
-           
-            self.logger.info("Generated question", question=question.content[:200])
+
+            self.logger.info(
+                "Generating question for expert",
+                analyst=analyst.name
+            )
+
+            system_prompt = ANALYST_ASK_QUESTIONS.render(
+                goals=analyst.persona
+            )
+
+            question = self.llm.invoke(
+                [SystemMessage(content=system_prompt)] + messages
+            )
+
+            self.logger.info(
+                "Generated question",
+                question=question.content[:200]
+            )
+
             return {"messages": [question]}
-        except Exception as e:  
+
+        except Exception as e:
             self.logger.error(f"Error generating question: {e}")
-            raise ResearchAnalysisException("Failed to generate question", e)
-    
+
+            raise ResearchAnalysisException(
+                "Failed to generate question",
+                e
+            )
     def search_web(self, state: InterviewState):
         """
         Generate a structured search query and perform Tavily web search.
         """
         try:
-            self.logger.info("Generating search query from conversation")
-            
+            self.logger.info(
+                "Generating search query from conversation"
+            )
+
             structured_llm = self.llm.with_structured_output(SearchQuery)
+
             search_prompt = GENERATE_SEARCH_QUERY.render()
-            
-            search_query = structured_llm.invoke([
-                SystemMessage(content=search_prompt) + state["messages"]
-            ])
-            
-            self.logger.info("Generated search query", query=search_query.query)
-            search_results = self.tavily_search.run(search_query.query) 
-            self.logger.info("Retrieved search results", num_results=len(search_results))
-            
+
+            search_query = structured_llm.invoke(
+                [SystemMessage(content=search_prompt)] + state["messages"]
+            )
+
+            self.logger.info(
+                "Generated search query",
+                query=search_query.search_query
+            )
+
+            search_results = self.tavily_search.run(
+                search_query.search_query
+            )
+
+            self.logger.info(
+                "Retrieved search results",
+                num_results=len(search_results)
+            )
+
             if not search_results:
-                self.logger.warning("No search results found for query", query=search_query.query)
-                return {"context": ["No search results found"]}
-            
+                self.logger.warning(
+                    "No search results found for query",
+                    query=search_query.query
+                )
+
+                return {
+                    "context": ["No search results found"]
+                }
+
             formatted = "\n\n---\n\n".join(
                 [
-                    f'<Document href="{doc.get("url", "#")}"/>\n{doc.get("content", "")}\n</Document>'
+                    f'<Document href="{doc.get("url", "#")}"/>\n'
+                    f'{doc.get("content", "")}\n'
+                    f'</Document>'
                     for doc in search_results
                 ]
             )
-            
-            self.logger.info("Formatted search results for context", formatted_length=len(formatted))
+
+            self.logger.info(
+                "Formatted search results for context",
+                formatted_length=len(formatted)
+            )
+
             return {"context": [formatted]}
-        except Exception as e:  
+
+        except Exception as e:
             self.logger.error(f"Error during web search: {e}")
-            raise ResearchAnalysisException("Failed during web search", e)
-    
+
+            raise ResearchAnalysisException(
+                "Failed during web search",
+                e
+            )
+            
     def generate_answer(self, state: InterviewState):
         """Generate an answer from the expert based on the question and retrieved context.
         """
@@ -98,9 +142,9 @@ class InterviewGraphBuilder:
             
             self.logger.info("Generating answer for expert", analyst=analyst.name)
             system_prompt = GENERATE_ANSWERS.render(goals=analyst.persona, context = context)
-            answer = self.llm.invoke([
-                SystemMessage(content=system_prompt) + messages
-            ])
+            answer = self.llm.invoke(
+                [SystemMessage(content=system_prompt)] + messages
+            )
             answer.name = "expert"
             self.logger.info("Generated answer", answer=answer.content[:200])
             
@@ -115,36 +159,70 @@ class InterviewGraphBuilder:
         """
         try:
             messages = state["messages"]
-            interview_transcript = get_buffer_string(messages)
-            self.logger.info("Saving interview transcript to memory", transcript_length=len(interview_transcript))
+            interview_transcript = get_buffer_string(
+                messages
+                )
+            self.logger.info(
+                "Saving interview transcript to memory", 
+                transcript_length=len(interview_transcript)
+                )
+            
             return {"interview": interview_transcript}
+        
         except Exception as e:
             self.logger.error(f"Error saving transcript: {e}")
             raise ResearchAnalysisException("Failed to save transcript", e) 
         
-    def write_section(self, state:InterviewState):
+    def write_section(self, state: InterviewState):
         """
-        Wrie a summarized report section based on the interview transcript and goals.
+        Write a summarized report section based on the interview transcript and goals.
         """
         try:
-            context = state.get("context", ["No context available"])
+            context = state.get(
+                "context",
+                ["No context available"]
+            )
+
             analyst = state["analyst"]
-            
-            self.logger.info("Writing report section based on interview and context", analyst=analyst.name)
-            system_prompt = WRITE_SECTION.render(goals=analyst.description)
-            
+
+            self.logger.info(
+                "Writing report section based on interview and context",
+                analyst=analyst.name
+            )
+
+            system_prompt = WRITE_SECTION.render(
+                goals=analyst.description
+            )
+
             section = self.llm.invoke([
-                SystemMessage(content=system_prompt) +
-                HumanMessage(content=context)
+                SystemMessage(content=system_prompt),
+                HumanMessage(content="\n".join(context))
             ])
-            
-            self.logger.info("Generated report section", section=section.content[:200])
-            return {"sections": section.content}
-        
+
+            self.logger.info(
+                "Generated report section",
+                section=section.content[:200]
+            )
+
+            return {
+                "sections": [
+                    Section(
+                        title=analyst.role,
+                        content=section.content
+                    )
+                ]
+            }
+
         except Exception as e:
-            self.logger.error(f"Error writing report section: {e}")
-            raise ResearchAnalysisException("Failed to write report section", e)
-    
+            self.logger.error(
+                f"Error writing report section: {e}"
+            )
+
+            raise ResearchAnalysisException(
+                "Failed to write report section",
+                e
+            )
+            
     def build_graph(self):
         """
         Construct the interview workflow graph for the research analysis report generation process.
@@ -166,10 +244,10 @@ class InterviewGraphBuilder:
             graph.add_edge("save_transcript", "write_section")
             graph.add_edge("write_section", END)
             
-            graph.compile(checkpointer=self.memory)
+            compiled_graaph = graph.compile(checkpointer=self.memory)
             self.logger.info("Interview workflow graph successfully built and compiled.")
             
-            return graph
+            return compiled_graaph
         except Exception as e:
             self.logger.error(f"Error building interview workflow graph: {e}")
             raise ResearchAnalysisException("Failed to build interview workflow graph", e)

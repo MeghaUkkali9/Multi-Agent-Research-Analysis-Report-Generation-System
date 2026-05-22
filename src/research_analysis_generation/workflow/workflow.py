@@ -17,10 +17,8 @@ from reportlab.pdfgen import canvas
 from research_analysis_generation.exception.custom_exception import ResearchAnalysisException
 from research_analysis_generation.workflow.interview_workflow import InterviewGraphBuilder
 from research_analysis_generation.schema.model import (
-    Analyst,
     Perspectives,
     GenerateAnalystsState,
-    InterviewState,
     ResearchGraphState
 )
 from research_analysis_generation.utils.api_key_manager import ApiKeyManager
@@ -28,10 +26,6 @@ from research_analysis_generation.logger import GLOBAL_LOGGER
 from research_analysis_generation.utils.model_loader import ModelLoader
 from research_analysis_generation.prompt_lib.prompt import (
     CREATE_ANALYSTS_PROMPT,
-    WRITE_INTRODUCTION_PROMPT,
-    WRITE_CONCLUSION_PROMPT,
-    WRITE_REPORT_PROMPT,
-    FINALIZE_REPORT_PROMPT,
     REPORT_WRITER_INSTRUCTIONS,
     INTRO_CONCLUSION_INSTRUCTIONS
 )
@@ -41,7 +35,8 @@ project_root = os.path.abspath(os.path.join(current_dir, "../../"))
 sys.path.append(project_root)
     
 class ReportGenerator:
-    def __init__(self):
+    
+    def __init__(self, llm):
         self.llm = llm
         self.memory = MemorySaver()
         self.logger = GLOBAL_LOGGER.bind(module = "ReportGenerator")
@@ -136,17 +131,27 @@ class ReportGenerator:
         
         try:
             if not sections:
-                sections = ["No sections available."]
-                self.logger.warning("No sections found in state for report writing.")       
+                sections_text = "No sections available."
+                self.logger.warning("No sections found in state for report writing.")
+            else:
+                sections_text = "\n\n".join(
+                    [
+                        f"## {section.title}\n\n{section.content}"
+                        for section in sections
+                    ]
+                )
             self.logger.info(f"Writing report for topic: {topic} with sections: {sections}")
             
-            system_prompt = REPORT_WRITER_INSTRUCTIONS.render(topic=topic)
+            system_prompt = REPORT_WRITER_INSTRUCTIONS.render(
+                topic=topic
+                )
             self.logger.debug(f"System prompt for report writing: {system_prompt}")
             
             report = self.llm.invoke([
                 SystemMessage(content= system_prompt),
-                HumanMessage(content="\n\n".join(sections))
+                HumanMessage(content=sections_text)
             ])
+            
             self.logger.info("Report successfully written.")
             return {"report": report.content}
         
@@ -331,7 +336,7 @@ class ReportGenerator:
         """ Construct the report workflow graph for the research analysis report generation process. """
         try:
             self.logger.info("Starting to build the report workflow graph.")
-            interview_graph = InterviewGraphBuilder(self.llm, self.tavily_search).build()
+            interview_graph = InterviewGraphBuilder(self.llm, self.tavily_search).build_graph()
 
             graph = StateGraph(ResearchGraphState)
             
@@ -364,10 +369,36 @@ class ReportGenerator:
     
     
 if __name__ == "__main__":
-    llm = ModelLoader().load_llm()
-    res = llm.invoke("Hello")
-    print(res.content)
-    report_generator = ReportGenerator()
-    
-    report_generator.build_graph()
+    try:
+        llm = ModelLoader().load_llm()
+        reporter = ReportGenerator(llm)
+        graph = reporter.build_graph()
+
+        topic = "Impact of LLMs over the Future of Jobs?"
+        thread = {"configurable": {"thread_id": "1"}}
+        reporter.logger.info("Starting report generation pipeline", topic=topic)
+
+        for _ in graph.stream({"topic": topic, "max_analysts": 3}, thread, stream_mode="values"):
+            pass
+
+        state = graph.get_state(thread)
+        feedback = input("\n Enter your feedback or press Enter to continue: ").strip()
+        graph.update_state(thread, {"human_analyst_feedback": feedback}, as_node="human_feedback")
+
+        for _ in graph.stream(None, thread, stream_mode="values"):
+            pass
+
+        final_state = graph.get_state(thread)
+        final_report = final_state.values.get("final_report")
+
+        if final_report:
+            reporter.logger.info("Report generated successfully")
+            reporter.save_report(final_report, topic, "docx")
+            reporter.save_report(final_report, topic, "pdf")
+        else:
+            reporter.logger.error("No report content generated")
+
+    except Exception as e:
+        GLOBAL_LOGGER.error("Fatal error in main execution", error=str(e))
+        raise ResearchAnalysisException("Autonomous report generation pipeline failed", e)
     
