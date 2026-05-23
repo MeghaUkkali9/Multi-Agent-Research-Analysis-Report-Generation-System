@@ -27,6 +27,7 @@ class InterviewGraphBuilder:
         """
         Initialize the InterviewGraphBuilder with the LLM model and Tavily search tool.
         """
+        
         self.llm = llm
         self.tavily_search = tavily_search
         self.memory = MemorySaver()
@@ -40,10 +41,7 @@ class InterviewGraphBuilder:
             analyst = state["analyst"]
             messages = state["messages"]
 
-            self.logger.info(
-                "Generating question for expert",
-                analyst=analyst.name
-            )
+            self.logger.info("Generating question for expert", analyst=analyst.name)
 
             system_prompt = ANALYST_ASK_QUESTIONS.render(
                 goals=analyst.persona
@@ -53,28 +51,20 @@ class InterviewGraphBuilder:
                 [SystemMessage(content=system_prompt)] + messages
             )
 
-            self.logger.info(
-                "Generated question",
-                question=question.content[:200]
-            )
+            self.logger.info("Generated question", question=question.content[:200])
 
             return {"messages": [question]}
 
         except Exception as e:
             self.logger.error(f"Error generating question: {e}")
-
-            raise ResearchAnalysisException(
-                "Failed to generate question",
-                e
-            )
+            raise ResearchAnalysisException("Failed to generate question", e)
+        
     def search_web(self, state: InterviewState):
         """
         Generate a structured search query and perform Tavily web search.
         """
         try:
-            self.logger.info(
-                "Generating search query from conversation"
-            )
+            self.logger.info("Generating search query from conversation")
 
             structured_llm = self.llm.with_structured_output(SearchQuery)
 
@@ -84,25 +74,16 @@ class InterviewGraphBuilder:
                 [SystemMessage(content=search_prompt)] + state["messages"]
             )
 
-            self.logger.info(
-                "Generated search query",
-                query=search_query.search_query
-            )
+            self.logger.info("Generated search query",query=search_query.search_query)
 
             search_results = self.tavily_search.run(
                 search_query.search_query
             )
 
-            self.logger.info(
-                "Retrieved search results",
-                num_results=len(search_results)
-            )
+            self.logger.info("Retrieved search results", num_results=len(search_results))
 
             if not search_results:
-                self.logger.warning(
-                    "No search results found for query",
-                    query=search_query.query
-                )
+                self.logger.warning("No search results found for query", query=search_query.query)
 
                 return {
                     "context": ["No search results found"]
@@ -117,23 +98,17 @@ class InterviewGraphBuilder:
                 ]
             )
 
-            self.logger.info(
-                "Formatted search results for context",
-                formatted_length=len(formatted)
-            )
+            self.logger.info("Formatted search results for context", formatted_length=len(formatted))
 
             return {"context": [formatted]}
 
         except Exception as e:
             self.logger.error(f"Error during web search: {e}")
-
-            raise ResearchAnalysisException(
-                "Failed during web search",
-                e
-            )
+            raise ResearchAnalysisException("Failed during web search", e)
             
     def generate_answer(self, state: InterviewState):
-        """Generate an answer from the expert based on the question and retrieved context.
+        """
+        Generate an answer from the expert based on the question and retrieved context.
         """
         try:
             analyst = state["analyst"]
@@ -142,9 +117,11 @@ class InterviewGraphBuilder:
             
             self.logger.info("Generating answer for expert", analyst=analyst.name)
             system_prompt = GENERATE_ANSWERS.render(goals=analyst.persona, context = context)
+            
             answer = self.llm.invoke(
                 [SystemMessage(content=system_prompt)] + messages
             )
+            
             answer.name = "expert"
             self.logger.info("Generated answer", answer=answer.content[:200])
             
@@ -159,13 +136,9 @@ class InterviewGraphBuilder:
         """
         try:
             messages = state["messages"]
-            interview_transcript = get_buffer_string(
-                messages
-                )
-            self.logger.info(
-                "Saving interview transcript to memory", 
-                transcript_length=len(interview_transcript)
-                )
+            interview_transcript = get_buffer_string(messages)
+            
+            self.logger.info("Saving interview transcript to memory", transcript_length=len(interview_transcript))
             
             return {"interview": interview_transcript}
         
@@ -185,10 +158,7 @@ class InterviewGraphBuilder:
 
             analyst = state["analyst"]
 
-            self.logger.info(
-                "Writing report section based on interview and context",
-                analyst=analyst.name
-            )
+            self.logger.info("Writing report section based on interview and context", analyst=analyst.name)
 
             system_prompt = WRITE_SECTION.render(
                 goals=analyst.description
@@ -199,10 +169,7 @@ class InterviewGraphBuilder:
                 HumanMessage(content="\n".join(context))
             ])
 
-            self.logger.info(
-                "Generated report section",
-                section=section.content[:200]
-            )
+            self.logger.info("Generated report section", section=section.content[:200])
 
             return {
                 "sections": [
@@ -214,14 +181,8 @@ class InterviewGraphBuilder:
             }
 
         except Exception as e:
-            self.logger.error(
-                f"Error writing report section: {e}"
-            )
-
-            raise ResearchAnalysisException(
-                "Failed to write report section",
-                e
-            )
+            self.logger.error(f"Error writing report section: {e}")
+            raise ResearchAnalysisException("Failed to write report section", e)
             
     def build_graph(self):
         """
