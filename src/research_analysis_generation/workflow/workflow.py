@@ -5,8 +5,7 @@ from typing import Optional
 from langgraph.types import Send
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_core.messages import get_buffer_string
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_community.tools.tavily_search import TavilySearchResults
 import re
 
@@ -56,19 +55,23 @@ class ReportGenerator:
                 human_analyst_feedback= human_analyst_feedback,
                 max_analysts= max_analysts
             )
+            
             analysts = structured_llm.invoke([
                 SystemMessage(content= system_message),
                 HumanMessage(content= "create a list of analysts")
             ])
+            
             return {
                 "analysts": analysts.analysts
                 }
+            
         except Exception as e:
             self.logger.error(f"Error creating analysts: {e}")
             raise ResearchAnalysisException("Failed to create analysts", e)
         
     def human_feedback(self):
-        """This node is a placeholder for human feedback. It does not perform any operations itself, but serves as an interruption point in the graph where human feedback can be collected and added to the state before proceeding with the report generation process.
+        """
+        This node is a placeholder for human feedback. It does not perform any operations itself, but serves as an interruption point in the graph where human feedback can be collected and added to the state before proceeding with the report generation process.
         """
         try:
             self.logger.info("Reached human feedback node. Awaiting human feedback before proceeding.")
@@ -103,7 +106,9 @@ class ReportGenerator:
             raise ResearchAnalysisException("Failed to write introduction", e)
     
     def write_conclusion(self, state: ResearchGraphState):
-        """ Writes the conclusion section of the report."""
+        """ 
+        Writes the conclusion section of the report.
+        """
         try:
             sections = state["sections"]
             topic = state["topic"]
@@ -121,6 +126,7 @@ class ReportGenerator:
             
             self.logger.info("Conclusion successfully written.")
             return {"conclusion": conclustion.content}
+        
         except Exception as e:
             self.logger.error(f"Error writing conclusion: {e}")
             raise ResearchAnalysisException("Failed to write conclusion", e)
@@ -195,7 +201,9 @@ class ReportGenerator:
             raise ResearchAnalysisException("Failed to finalize report", e)
     
     def save_report(self, final_report: str, topic: str, format: str = "docx"):
-        """Save the report as DOCX or PDF, each in its own subfolder."""
+        """
+        Save the report as DOCX or PDF, each in its own subfolder.
+        """
         try:
             self.logger.info("Saving report", topic=topic, format=format)
             
@@ -226,7 +234,9 @@ class ReportGenerator:
             raise ResearchAnalysisException("Failed to save report file", e)
 
     def __save_as_docx(self, text: str, file_path: str):
-        """Save as DOCX."""
+        """
+        Save as DOCX.
+        """
         try:
             doc = Document()
             for line in text.split("\n"):
@@ -244,7 +254,9 @@ class ReportGenerator:
             raise ResearchAnalysisException("Error saving DOCX report", e)
 
     def __save_as_pdf(self, text: str, file_path: str):
-        """Save as PDF with centered text block, wrapping, and clean layout."""
+        """
+        Save as PDF with centered text block, wrapping, and clean layout.
+        """
         from textwrap import wrap
         try:
             c = canvas.Canvas(file_path, pagesize=letter)
@@ -333,7 +345,9 @@ class ReportGenerator:
             for analyst in analysts
         ]
     def build_graph(self):
-        """ Construct the report workflow graph for the research analysis report generation process. """
+        """ 
+        Construct the report workflow graph for the research analysis report generation process.
+        """
         try:
             self.logger.info("Starting to build the report workflow graph.")
             interview_graph = InterviewGraphBuilder(self.llm, self.tavily_search).build_graph()
