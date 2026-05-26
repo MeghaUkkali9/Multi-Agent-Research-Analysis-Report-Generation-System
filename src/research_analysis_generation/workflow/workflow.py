@@ -1,7 +1,6 @@
 import os
 import sys
 from datetime import datetime
-from typing import Optional
 from langgraph.types import Send
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
