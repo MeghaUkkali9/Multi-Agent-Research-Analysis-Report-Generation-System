@@ -104,3 +104,9 @@ src/
 * Requires `pip install -e .` for correct imports
 * Avoid running files directly via absolute paths
 
+## Run Application
+
+```
+uvicorn research_analysis_generation.api.main:app --reload
+```
+

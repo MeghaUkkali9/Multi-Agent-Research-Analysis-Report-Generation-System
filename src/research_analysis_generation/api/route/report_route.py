@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from research_analysis_generation.database.db_config import SessionLocal, User, hash_password, verify_password
-from research_analysis_generation.api.services.report_service import ReportService
+from research_analysis_generation.database.config import SessionLocal, User, hash_password, verify_password
+from research_analysis_generation.api.service.service import ReportService
 
 router = APIRouter()
 SESSIONS = {}
