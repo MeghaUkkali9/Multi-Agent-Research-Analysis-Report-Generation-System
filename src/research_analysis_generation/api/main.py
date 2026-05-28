@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from research_analysis_generation.api.route.report_route import report_routes
+from research_analysis_generation.api.route.report_route import router
 from datetime import datetime
 
 app = FastAPI(title="Autonomous Report Generator UI")
@@ -37,4 +37,4 @@ async def health_check():
     }
 
 # Register Routes
-app.include_router(report_routes.router)
+app.include_router(router)

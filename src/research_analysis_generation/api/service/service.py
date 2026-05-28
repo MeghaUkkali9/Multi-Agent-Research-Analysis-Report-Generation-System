@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from research_analysis_generation.utils.model_loader import ModelLoader
 from research_analysis_generation.workflow.workflow import ReportGenerator as AutonomousReportGenerator
 from research_analysis_generation.logger import GLOBAL_LOGGER
-from research_analysis_generation.exception.custom_exception import ResearchAnalystException
+from research_analysis_generation.exception.custom_exception import ResearchAnalysisException
 from langgraph.checkpoint.memory import MemorySaver
 
 _shared_memory = MemorySaver()
@@ -30,7 +30,7 @@ class ReportService:
             return {"thread_id": thread_id, "message": "Pipeline initiated successfully."}
         except Exception as e:
             self.logger.error("Error initiating report generation", error=str(e))
-            raise ResearchAnalystException("Failed to start report generation", e)
+            raise ResearchAnalysisException("Failed to start report generation", e)
 
     def submit_feedback(self, thread_id: str, feedback: str):
         """Update human feedback in graph state."""
@@ -43,7 +43,7 @@ class ReportService:
             return {"message": "Feedback processed successfully"}
         except Exception as e:
             self.logger.error("Error updating feedback", error=str(e))
-            raise ResearchAnalystException("Failed to update feedback", e)
+            raise ResearchAnalysisException("Failed to update feedback", e)
         
     def get_report_status(self, thread_id: str):
         """Fetch latest state or final report."""
@@ -65,7 +65,7 @@ class ReportService:
             return {"status": "in_progress"}
         except Exception as e:
             self.logger.error("Error fetching report status", error=str(e))
-            raise ResearchAnalystException("Failed to fetch report status", e)
+            raise ResearchAnalysisException("Failed to fetch report status", e)
 
     @staticmethod
     def download_file(file_name: str):
