@@ -8,8 +8,8 @@ from datetime import datetime
 
 app = FastAPI(title="Autonomous Report Generator UI")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="research_and_analyst/api/templates")
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
+templates = Jinja2Templates(directory="src/research_analysis_generation/api/templates")
 app.templates = templates  # so templates accessible inside router
 
 # 🔹 ADD THIS FUNCTION

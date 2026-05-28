@@ -70,7 +70,7 @@ async def generate_report(request: Request, topic: str = Form(...)):
     thread_id = result["thread_id"] 
 
     return request.app.templates.TemplateResponse(
-        "report_progress.html",
+        "report.html",
         {
             "request": request,
             "topic": topic,
@@ -90,7 +90,7 @@ async def submit_feedback(request: Request, topic: str = Form(...), feedback: st
     pdf_path = result.get("pdf_path")
 
     return request.app.templates.TemplateResponse(
-        "report_progress.html",
+        "report.html",
         {
             "request": request,
             "topic": topic,
