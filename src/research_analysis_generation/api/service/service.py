@@ -70,7 +70,8 @@ class ReportService:
     @staticmethod
     def download_file(file_name: str):
         """Download generated report."""
-        report_dir = os.path.join(os.getcwd(), "generated_report")
+        report_dir = os.path.join(os.getcwd(), "src", "generated_report")
+
         for root, _, files in os.walk(report_dir):
             if file_name in files:
                 return FileResponse(
