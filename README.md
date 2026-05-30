@@ -105,6 +105,10 @@ src/
 * Avoid running files directly via absolute paths
 
 ## Run Application
+Get into virtual environment:
+```
+source .venv/bin/activate
+```
 
 ```
 uvicorn research_analysis_generation.api.main:app --reload
