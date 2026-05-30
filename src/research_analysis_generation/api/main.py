@@ -7,8 +7,29 @@ from research_analysis_generation.api.route.report_route import router
 from datetime import datetime
 
 app = FastAPI(title="Autonomous Report Generator UI")
+from pathlib import Path
 
-app.mount("/static", StaticFiles(directory="src/static"), name="static")
+# BASE_DIR = Path(__file__).resolve().parents[1]  # adjust if needed
+
+# STATIC_DIR = BASE_DIR / "src" / "static"
+
+# print("Static directory:", STATIC_DIR)
+
+# app.mount(
+#     "/static",
+#     StaticFiles(directory=str(STATIC_DIR)),
+#     name="static"
+# )
+
+import os
+
+print("\n\n\n\ncwd =", os.getcwd())
+print("static exists =", os.path.exists("src/static"))
+app.mount(
+    "/static",
+    StaticFiles(directory="src/static"),
+    name="static"
+)
 templates = Jinja2Templates(directory="src/research_analysis_generation/api/templates")
 app.templates = templates  # so templates accessible inside router
 
