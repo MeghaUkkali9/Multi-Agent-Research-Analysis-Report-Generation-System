@@ -201,6 +201,49 @@ yourself — only describe what needs to change.
 """)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Prompt for Fact-Checker Agent to Verify Citations Against Source Context
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+FACT_CHECK_SECTION = jinja_env.from_string("""
+You are a fact-checker reviewing a report section for fabrication — not for style.
+
+Here is the source context the section was supposed to be based on:
+---
+{{ context }}
+---
+
+Here is the section to fact-check:
+---
+{{ section }}
+---
+
+Your job is narrow: catch claims that are fabricated or invented — not present in, and not
+a reasonable inference from, the source context above. You are NOT checking writing style,
+structure, phrasing, or whether every sentence is a verbatim quote.
+
+Do NOT flag a claim just because it:
+- Paraphrases or summarizes the source context in different words.
+- Synthesizes a reasonable conclusion by combining two or more facts that ARE present in
+  the context.
+- States general, widely-known background knowledge that provides context but isn't the
+  section's core claim (e.g. "LLMs are a type of AI model").
+- Is phrased more generally or more specifically than the source, as long as the substance
+  is still supported.
+
+DO flag a claim if it:
+- States a specific number, statistic, date, or name that does not appear anywhere in the
+  source context.
+- Asserts something the source context does not mention or directly contradicts.
+- Attributes a finding, study, or quote to a source that never actually says that.
+
+Set all_claims_supported to true unless you find at least one claim meeting the DO-flag
+criteria above. When a claim is a borderline paraphrase or synthesis, do not flag it —
+only flag clear fabrication.
+
+If you do flag anything, list each unsupported or fabricated claim verbatim in
+unsupported_claims, so the writer can fix or remove it.
+""")
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Prompt to Consolidate All Sections into a Full Report
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 REPORT_WRITER_INSTRUCTIONS = jinja_env.from_string("""

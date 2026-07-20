@@ -5,13 +5,14 @@ from langchain_core.messages import get_buffer_string
 
 from research_analysis_generation.logger import GLOBAL_LOGGER
 from research_analysis_generation.exception.custom_exception import ResearchAnalysisException
-from research_analysis_generation.schema.model import InterviewState, SearchQuery, Section, SectionReview
+from research_analysis_generation.schema.model import InterviewState, SearchQuery, Section, SectionReview, CitationCheck
 from research_analysis_generation.prompt_lib.prompt import (
     ANALYST_ASK_QUESTIONS,
     GENERATE_SEARCH_QUERY,
     GENERATE_ANSWERS,
     WRITE_SECTION,
     REVIEW_SECTION,
+    FACT_CHECK_SECTION,
 )
 
 class InterviewGraphBuilder:
@@ -23,8 +24,9 @@ class InterviewGraphBuilder:
         3. Expert generating answers.
         4. Saving the interview transcript.
         5. Writing a summarized report section.
-        6. An editor agent reviewing the section and requesting revisions
-           until it's approved or the revision cap is reached.
+        6. Two independent critics reviewing the section in parallel — a style/
+           structure editor and a fact-checker — and requesting revisions until
+           both approve it or the revision cap is reached.
     """
 
     MAX_SECTION_REVISIONS = 2
@@ -266,16 +268,89 @@ class InterviewGraphBuilder:
             return {
                 "section_feedback": review.feedback,
                 "section_approved": review.approved,
-                "revision_count": revision_count + 1,
             }
 
         except Exception as e:
             self.logger.error(f"Error reviewing report section: {e}")
             raise ResearchAnalysisException("Failed to review report section", e)
 
+    def fact_check_section(self, state: InterviewState):
+        """
+        Fact-checker agent: independently verifies every claim in the latest section
+        draft against the retrieved search context, and flags anything unsupported.
+        Runs in parallel with review_section — a second, differently-lensed critic
+        rather than one agent grading everything.
+        """
+        try:
+            analyst = state["analyst"]
+            section = state["sections"][-1]
+            context = state.get("context", ["No context available"])
+
+            self.logger.info("Fact-checking report section", analyst=analyst.name)
+
+            structured_llm = self.llm.with_structured_output(CitationCheck)
+            fact_check_prompt = FACT_CHECK_SECTION.render(
+                context="\n\n".join(context),
+                section=section.content,
+            )
+
+            result = structured_llm.invoke([SystemMessage(content=fact_check_prompt)])
+
+            self.logger.info(
+                "Fact-check complete",
+                supported=result.all_claims_supported,
+                unsupported_count=len(result.unsupported_claims),
+            )
+
+            feedback = ""
+            if not result.all_claims_supported:
+                feedback = (
+                    "The following claims are not backed by the retrieved source context "
+                    "and must be removed or rewritten to only state what the sources support: "
+                    + "; ".join(result.unsupported_claims)
+                )
+
+            return {
+                "citation_feedback": feedback,
+                "citations_supported": result.all_claims_supported,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error fact-checking report section: {e}")
+            raise ResearchAnalysisException("Failed to fact-check report section", e)
+
+    def combine_reviews(self, state: InterviewState):
+        """
+        Join point for the two parallel critics. The section only passes if both the
+        style editor and the fact-checker approve it independently; otherwise their
+        feedback is merged for the next write_section pass.
+        """
+        section_approved = state.get("section_approved", False)
+        citations_supported = state.get("citations_supported", False)
+        revision_count = state.get("revision_count", 0)
+
+        feedback_parts = []
+        if not section_approved:
+            feedback_parts.append(f"Editor feedback: {state.get('section_feedback', '')}")
+        if not citations_supported:
+            feedback_parts.append(f"Fact-checker feedback: {state.get('citation_feedback', '')}")
+
+        self.logger.info(
+            "Combined review result",
+            section_approved=section_approved,
+            citations_supported=citations_supported,
+            revision_count=revision_count + 1,
+        )
+
+        return {
+            "section_approved": section_approved and citations_supported,
+            "section_feedback": "\n\n".join(feedback_parts),
+            "revision_count": revision_count + 1,
+        }
+
     def route_review(self, state: InterviewState):
         """
-        Loop back to the writer if the editor rejected the section and the
+        Loop back to the writer if either critic rejected the section and the
         revision cap hasn't been hit yet; otherwise the section is final.
         """
         if state.get("section_approved") or state.get("revision_count", 0) >= self.MAX_SECTION_REVISIONS:
@@ -296,6 +371,8 @@ class InterviewGraphBuilder:
             graph.add_node("save_transcript", self.save_transcript)
             graph.add_node("write_section", self.write_section)
             graph.add_node("review_section", self.review_section)
+            graph.add_node("fact_check_section", self.fact_check_section)
+            graph.add_node("combine_reviews", self.combine_reviews)
 
             graph.add_edge(START, "generate_question")
             graph.add_edge("generate_question", "search_web")
@@ -307,8 +384,10 @@ class InterviewGraphBuilder:
             )
             graph.add_edge("save_transcript", "write_section")
             graph.add_edge("write_section", "review_section")
+            graph.add_edge("write_section", "fact_check_section")
+            graph.add_edge(["review_section", "fact_check_section"], "combine_reviews")
             graph.add_conditional_edges(
-                "review_section",
+                "combine_reviews",
                 self.route_review,
                 ["write_section", END],
             )

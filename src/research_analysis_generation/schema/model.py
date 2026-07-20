@@ -69,6 +69,8 @@ class InterviewState(MessagesState):
     sections: List[Section]
     section_feedback: NotRequired[str]
     section_approved: NotRequired[bool]
+    citation_feedback: NotRequired[str]
+    citations_supported: NotRequired[bool]
     revision_count: NotRequired[int]
 
 class ResearchGraphState(TypedDict):
