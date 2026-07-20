@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Request, Form
+import secrets
+from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.orm import Session
-from research_analysis_generation.database.config import SessionLocal, User, hash_password, verify_password
+from sqlalchemy.orm import Session as DBSession
+from research_analysis_generation.database.config import SessionLocal, User, UserSession, hash_password, verify_password
 from research_analysis_generation.api.service.service import ReportService
 
 router = APIRouter()
-SESSIONS = {}
 
 def get_db():
     db = SessionLocal()
@@ -14,20 +14,27 @@ def get_db():
     finally:
         db.close()
 
+def get_current_user(request: Request, db: DBSession = Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        return None
+    session = db.query(UserSession).filter(UserSession.session_id == session_id).first()
+    return session.username if session else None
+
 @router.get("/", response_class=HTMLResponse)
 async def show_login(request: Request):
     return request.app.templates.TemplateResponse("login.html", {"request": request})
 
 @router.post("/login", response_class=HTMLResponse)
-async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    db = next(get_db())
+async def login(request: Request, username: str = Form(...), password: str = Form(...), db: DBSession = Depends(get_db)):
     user = db.query(User).filter(User.username == username).first()
 
     if user and verify_password(password, user.password):
-        session_id = f"{username}_session"
-        SESSIONS[session_id] = username
+        session_id = secrets.token_urlsafe(32)
+        db.add(UserSession(session_id=session_id, username=username))
+        db.commit()
         response = RedirectResponse(url="/dashboard", status_code=302)
-        response.set_cookie(key="session_id", value=session_id)
+        response.set_cookie(key="session_id", value=session_id, httponly=True, samesite="lax")
         return response
 
     return request.app.templates.TemplateResponse(
@@ -40,8 +47,7 @@ async def show_signup(request: Request):
     return request.app.templates.TemplateResponse("signup.html", {"request": request})
 
 @router.post("/signup", response_class=HTMLResponse)
-async def signup(request: Request, username: str = Form(...), password: str = Form(...)):
-    db = next(get_db())
+async def signup(request: Request, username: str = Form(...), password: str = Form(...), db: DBSession = Depends(get_db)):
     existing_user = db.query(User).filter(User.username == username).first()
     if existing_user:
         return request.app.templates.TemplateResponse(
@@ -55,19 +61,30 @@ async def signup(request: Request, username: str = Form(...), password: str = Fo
     db.refresh(new_user)
     return RedirectResponse(url="/", status_code=302)
 
+@router.post("/logout")
+async def logout(request: Request, db: DBSession = Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        db.query(UserSession).filter(UserSession.session_id == session_id).delete()
+        db.commit()
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie("session_id")
+    return response
 
 @router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    session_id = request.cookies.get("session_id")
-    if session_id not in SESSIONS:
+async def dashboard(request: Request, user: str = Depends(get_current_user)):
+    if not user:
         return RedirectResponse(url="/")
-    return request.app.templates.TemplateResponse("dashboard.html", {"request": request, "user": SESSIONS[session_id]})
+    return request.app.templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
 
 @router.post("/generate_report", response_class=HTMLResponse)
-async def generate_report(request: Request, topic: str = Form(...)):
+async def generate_report(request: Request, topic: str = Form(...), user: str = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/")
+
     service = ReportService()
     result = service.start_report_generation(topic, 3)
-    thread_id = result["thread_id"] 
+    thread_id = result["thread_id"]
 
     return request.app.templates.TemplateResponse(
         "report.html",
@@ -80,7 +97,10 @@ async def generate_report(request: Request, topic: str = Form(...)):
     )
 
 @router.post("/submit_feedback", response_class=HTMLResponse)
-async def submit_feedback(request: Request, topic: str = Form(...), feedback: str = Form(...), thread_id: str = Form(...)):
+async def submit_feedback(request: Request, topic: str = Form(...), feedback: str = Form(...), thread_id: str = Form(...), user: str = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/")
+
     service = ReportService()
     service.submit_feedback(thread_id, feedback)
 
@@ -102,7 +122,10 @@ async def submit_feedback(request: Request, topic: str = Form(...), feedback: st
     )
 
 @router.get("/download/{file_name}", response_class=HTMLResponse)
-async def download_report(file_name: str):
+async def download_report(file_name: str, user: str = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/")
+
     service = ReportService()
     file_response = service.download_file(file_name)
     if file_response:

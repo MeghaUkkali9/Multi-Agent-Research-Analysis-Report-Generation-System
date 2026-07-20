@@ -18,6 +18,12 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
 
+class UserSession(Base):
+    __tablename__ = "sessions"
+
+    session_id = Column(String, primary_key=True)
+    username = Column(String, nullable=False)
+
 Base.metadata.create_all(bind=engine)
 
 def hash_password(password: str) -> str:

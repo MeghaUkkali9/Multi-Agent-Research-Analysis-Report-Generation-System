@@ -158,6 +158,46 @@ There should be no redundant sources. It should simply be:
 - Ensure the report follows the required structure
 - Include no preamble before the title of the report
 - Check that all guidelines have been followed
+{% if feedback %}
+
+9. This is a revision. An editor reviewed your previous draft and requires you to
+   address the following feedback directly — do not ignore it:
+{{ feedback }}
+{% endif %}
+""")
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Prompt for Editor Agent to Review a Report Section
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+REVIEW_SECTION = jinja_env.from_string("""
+You are a meticulous editor reviewing a report section before it goes to publication.
+You did not write this section and have no attachment to it — judge it strictly.
+
+The section was written for this analyst's focus area:
+{% if goals %}
+{{ goals }}
+{% else %}
+[No focus specified]
+{% endif %}
+
+Here is the section to review:
+---
+{{ section }}
+---
+
+Evaluate the section against these criteria:
+1. Insights are specific and non-obvious, not generic statements anyone could guess.
+2. Every factual claim is backed by an inline citation, e.g. [1], [2].
+3. The Sources section lists each unique source exactly once, matching the citations
+   used in the summary — no duplicates, no orphaned citations.
+4. The section follows the required structure: a "## " title, a "### Summary"
+   sub-header, and a "### Sources" sub-header.
+5. The summary is roughly 800 words or fewer.
+
+If the section meets every criterion, set approved to true and leave feedback empty.
+If it falls short on any criterion, set approved to false and give specific,
+actionable feedback describing exactly what to fix. Do not rewrite the section
+yourself — only describe what needs to change.
 """)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

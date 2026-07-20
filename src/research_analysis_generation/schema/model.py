@@ -37,6 +37,23 @@ class SearchQuery(BaseModel):
         description="Search query for retrieval."
     )
 
+class SectionReview(BaseModel):
+    approved: bool = Field(
+        description="True if the section meets the quality bar and needs no further revision."
+    )
+    feedback: str = Field(
+        description="Specific, actionable feedback describing what to fix. Empty if approved."
+    )
+
+class CitationCheck(BaseModel):
+    all_claims_supported: bool = Field(
+        description="True only if every factual claim and citation in the section is backed by the provided source context."
+    )
+    unsupported_claims: List[str] = Field(
+        default_factory=list,
+        description="Claims or citations in the section not backed by the provided context, quoted verbatim. Empty if all_claims_supported is true."
+    )
+
 class GenerateAnalystsState(TypedDict):
     topic: str  
     max_analysts: int 
@@ -45,11 +62,14 @@ class GenerateAnalystsState(TypedDict):
 
 
 class InterviewState(MessagesState):
-    max_num_turns: int  
-    context: Annotated[List[str], operator.add]  
-    analyst: Analyst  
-    interview: str 
-    sections: List[Section] 
+    max_num_turns: int
+    context: Annotated[List[str], operator.add]
+    analyst: Analyst
+    interview: str
+    sections: List[Section]
+    section_feedback: NotRequired[str]
+    section_approved: NotRequired[bool]
+    revision_count: NotRequired[int]
 
 class ResearchGraphState(TypedDict):
     topic: str  
