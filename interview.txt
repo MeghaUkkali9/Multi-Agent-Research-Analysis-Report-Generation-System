@@ -1,0 +1,10 @@
+Project title line:
+Multi-Agent Research Report Generator — LangGraph, FastAPI, OpenAI/Groq
+
+Bullets (pick 3-4, don't use all):
+
+Built a multi-agent research pipeline in LangGraph where independent analyst agents run parallel interviews with an LLM-simulated expert, each grounded in live web search (Tavily) instead of the model's own knowledge.
+Designed a reflect-and-revise quality gate: two independent critic agents (a style editor and a fact-checker) grade each generated section in parallel and route it back for rewriting until both approve or a revision cap is hit.
+Found and fixed a session-forgery authentication vulnerability (predictable session tokens) in the FastAPI backend, replacing it with cryptographically random, database-backed sessions.
+Fixed a blocking event-loop bug where report generation stalled every concurrent user; moved the workload off FastAPI's async loop and added a shared service instance to stop reloading the LLM client and graph on every request.
+Added human-in-the-loop control — the pipeline pauses after the AI generates its analyst team so a person can review or redirect before the costly interview stage runs.
