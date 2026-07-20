@@ -114,64 +114,73 @@ source .venv/bin/activate
 uvicorn research_analysis_generation.api.main:app --reload
 ```
 
-## Multi-Agent Architecture
+## How the Multi-Agent Part Works
 
-The report pipeline is a LangGraph state machine with two nested graphs: an outer
-**report graph** and an inner **interview graph**, run once per analyst.
+1. **Create the analyst team.** One LLM call creates a few analyst personas —
+   each with a different name and a different angle on the topic (example: one
+   focused on tech, one on business impact). Right after this, the pipeline
+   pauses so someone can look at the team and edit or approve it before any
+   interviews (the expensive part) start.
+
+2. **Each analyst interviews an expert, all at the same time.** Every analyst
+   gets its own private interview. These run in parallel — they are separate
+   conversations, not one shared chat. Inside one interview:
+   - the analyst asks a question
+   - the app searches the web for that question (Tavily)
+   - the expert (same LLM, but a different role/prompt) answers using only what
+     the search results say — nothing made up
+   - this repeats for a few rounds (`max_num_turns`), or stops early if the
+     analyst says "thank you, that's enough"
+
+3. **Each analyst writes a short section** based on its own interview.
+
+4. **Two separate checks run on that section, at the same time:**
+   - an editor checks if the writing is specific and not generic filler
+   - a fact-checker checks if every claim is actually backed by the search
+     results, or if the writer invented something
+
+   If either check fails, the section goes back to be rewritten, along with the
+   feedback that explains what was wrong. This can repeat a couple of times
+   (`MAX_SECTION_REVISIONS`), then it stops and keeps whatever version exists —
+   so one strict check can't loop forever.
+
+5. **Once every analyst has finished**, all the sections get combined into one
+   report. A separate writer role does this combining, and it only sees the
+   finished sections, not the raw interviews. That same step also writes its
+   own intro and conclusion.
 
 ```
 create_analyst
       |
-human_feedback  (interrupt — human can edit/reject the analyst team)
+human_feedback   <- pauses here for human review of the analyst team
       |
-      +--> Send() fans out one parallel "conduct_interview" run per analyst
+      +--> one interview per analyst, all in parallel
       |
-conduct_interview (subgraph, one instance per analyst, running concurrently)
+      analyst asks question -> web search -> expert answers
+      (repeat a few rounds, or stop early if analyst says thanks)
+            |
+      write_section
+            |
+      editor checks it  +  fact-checker checks it   <- both run together
+            |
+      not approved? -> rewrite with their feedback (up to a revision cap)
+      approved (or cap hit) -> done with this section
       |
-      +--> generate_question   (analyst persona asks the expert a question)
-      +--> search_web          (Tavily query grounds the next answer)
-      +--> generate_answer     (expert answers using only retrieved context)
-      +--> route_messages      (loop back to generate_question, up to
-      |                         max_num_turns, unless the analyst has said
-      |                         "Thank you so much for your help!")
-      +--> save_transcript
-      +--> write_section       (one report section per analyst)
-      +--> review_section      (editor agent grades the section; if rejected,
-      |                         loops back to write_section with feedback +
-      |                         the previous draft, up to MAX_SECTION_REVISIONS)
+all sections combined into one report + intro + conclusion
       |
-write_report / write_introduction / write_conclusion   (run in parallel
-      |                                                  over all sections)
-      v
-finalize_report
+final report
 ```
 
-Why this counts as "multi-agent" rather than a single prompt chain:
+**Why this is actually multi-agent and not just one big prompt:**
 
-- **Distinct personas, not one LLM call**: `create_analyst` generates N independent
-  `Analyst` personas (name, role, affiliation, focus) via structured output. Each
-  drives its own interview with a different system prompt built from `analyst.persona`.
-- **Parallel, isolated execution**: `initiate_all_interviews` uses LangGraph's `Send`
-  API to fan out one `conduct_interview` subgraph invocation per analyst — these run
-  concurrently with their own state (`InterviewState`), not a shared conversation.
-- **Two-role simulation inside each interview**: the same LLM plays both the
-  `analyst` (asking, driving toward specific/non-obvious insights) and the `expert`
-  (answering strictly from retrieved search context, citing sources) — a genuine
-  multi-turn back-and-forth bounded by `max_num_turns`, not one question/one answer.
-- **Tool-using agent**: `search_web` gives the expert role live grounding via Tavily
-  before every answer, so answers are sourced rather than hallucinated.
-- **Reflect-and-revise loop**: `review_section` is a fourth role — an editor agent
-  that never sees the raw interview, only the finished draft — grading it against
-  explicit criteria (specific insights, cited claims, structure, dedup'd sources)
-  via structured output. A rejection routes back to `write_section` with the
-  editor's feedback and the previous draft attached, so the rewrite is a genuine
-  revision, not a fresh guess. Capped at `MAX_SECTION_REVISIONS` so a strict critic
-  can't loop forever.
-- **Map-reduce synthesis**: sections written independently per analyst are combined
-  by a separate writer role (`write_report`) that has never seen the raw interviews —
-  only the finished memos — then stitched with independently generated introduction
-  and conclusion sections.
-- **Human-in-the-loop checkpoint**: `human_feedback` is a LangGraph `interrupt_before`
-  node — the graph pauses after analyst creation so a person can redirect the team
-  before any interviews (and their API/token cost) run.
+- Each analyst is a separate persona with its own goals, not one LLM answering
+  everything the same way.
+- Interviews run in parallel, each with its own state, no shared conversation.
+- Inside one interview, the same LLM plays two roles that don't trust each other
+  blindly — the analyst pushes for specific answers, the expert only answers from
+  what was actually searched.
+- Editor and fact-checker are separate roles, checking the writer's work from two
+  different angles instead of one agent grading itself.
+- The report writer never sees the raw interviews, only the finished sections.
+- A human gets a checkpoint before the expensive part (all the interviews) runs.
 
