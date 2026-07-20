@@ -147,6 +147,9 @@ celerybeat.pid
 .venv
 env/
 venv/
+
+# Local runtime database (contains user credentials)
+users.db
 ENV/
 env.bak/
 venv.bak/
