@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session as DBSession
 from research_analysis_generation.database.config import SessionLocal, User, UserSession, hash_password, verify_password
-from research_analysis_generation.api.service.service import ReportService
+from research_analysis_generation.api.service.service import get_report_service
 
 router = APIRouter()
 
@@ -78,11 +78,11 @@ async def dashboard(request: Request, user: str = Depends(get_current_user)):
     return request.app.templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
 
 @router.post("/generate_report", response_class=HTMLResponse)
-async def generate_report(request: Request, topic: str = Form(...), user: str = Depends(get_current_user)):
+def generate_report(request: Request, topic: str = Form(...), user: str = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/")
 
-    service = ReportService()
+    service = get_report_service()
     result = service.start_report_generation(topic, 3)
     thread_id = result["thread_id"]
 
@@ -97,11 +97,11 @@ async def generate_report(request: Request, topic: str = Form(...), user: str = 
     )
 
 @router.post("/submit_feedback", response_class=HTMLResponse)
-async def submit_feedback(request: Request, topic: str = Form(...), feedback: str = Form(...), thread_id: str = Form(...), user: str = Depends(get_current_user)):
+def submit_feedback(request: Request, topic: str = Form(...), feedback: str = Form(...), thread_id: str = Form(...), user: str = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/")
 
-    service = ReportService()
+    service = get_report_service()
     service.submit_feedback(thread_id, feedback)
 
     # Get latest report status
@@ -126,7 +126,7 @@ async def download_report(file_name: str, user: str = Depends(get_current_user))
     if not user:
         return RedirectResponse(url="/")
 
-    service = ReportService()
+    service = get_report_service()
     file_response = service.download_file(file_name)
     if file_response:
         return file_response

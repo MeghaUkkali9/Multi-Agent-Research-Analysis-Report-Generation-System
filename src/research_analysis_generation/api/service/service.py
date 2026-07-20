@@ -1,5 +1,6 @@
 import uuid
 import os
+import threading
 from fastapi.responses import FileResponse
 from research_analysis_generation.utils.model_loader import ModelLoader
 from research_analysis_generation.workflow.workflow import ReportGenerator as AutonomousReportGenerator
@@ -80,3 +81,20 @@ class ReportService:
                     media_type="application/octet-stream"
                 )
         return {"error": f"File {file_name} not found"}
+
+
+_report_service = None
+_report_service_lock = threading.Lock()
+
+def get_report_service() -> ReportService:
+    """
+    Return a process-wide shared ReportService, built once on first use.
+    Avoids reloading the LLM client and rebuilding both LangGraph graphs on
+    every request.
+    """
+    global _report_service
+    if _report_service is None:
+        with _report_service_lock:
+            if _report_service is None:
+                _report_service = ReportService()
+    return _report_service
