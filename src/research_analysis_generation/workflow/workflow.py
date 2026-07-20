@@ -335,7 +335,7 @@ class ReportGenerator:
                             content=f"So, let's discuss about {topic}."
                         )
                     ],
-                    "max_num_turns": 2,
+                    "max_num_turns": 3,
                     "context": [],
                     "interview": "",
                     "sections": [],

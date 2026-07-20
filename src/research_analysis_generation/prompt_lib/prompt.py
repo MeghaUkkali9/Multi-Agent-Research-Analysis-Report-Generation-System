@@ -133,6 +133,13 @@ c. Sources (### header)
 5. For the summary section:
 - Set up summary with general background / context related to the focus area of the analyst
 - Emphasize what is novel, interesting, or surprising about insights gathered from the interview
+- This section will be graded on specificity. For every claim, pull out and state the
+  concrete detail behind it — a number, percentage, date, named system, named study, or
+  direct comparison — rather than a general statement. "Multi-agent systems improve
+  scalability" is too generic on its own; "System X reported a Y% improvement over a
+  single-agent baseline" is the level of specificity required. If the source context does
+  not contain a concrete detail for a claim, either find one that does or drop the claim —
+  do not state it generically and hope it passes review.
 - Create a numbered list of source documents, as you use them
 - Do not mention the names of interviewers or experts
 - Aim for approximately 800 words maximum
