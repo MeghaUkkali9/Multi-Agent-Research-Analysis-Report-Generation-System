@@ -22,10 +22,15 @@ def basename_filter(path: str):
 
 templates.env.filters["basename"] = basename_filter
 
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:8000,http://127.0.0.1:8000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=allowed_origins,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
