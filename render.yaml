@@ -12,8 +12,12 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
-      - key: LANGCHAIN_API_KEY
+      - key: LANGFUSE_PUBLIC_KEY
         sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_BASE_URL
+        value: https://us.cloud.langfuse.com
       - key: LLM_PROVIDER
         value: openai
       - key: ALLOWED_ORIGINS

@@ -33,3 +33,9 @@ variable "task_memory" {
   type        = string
   default     = "512"
 }
+
+variable "langfuse_base_url" {
+  description = "Langfuse API host — not a secret, just which region/instance to send traces to"
+  type        = string
+  default     = "https://us.cloud.langfuse.com"
+}

@@ -32,6 +32,7 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         { name = "LLM_PROVIDER", value = "openai" },
         { name = "ALLOWED_ORIGINS", value = "http://${aws_lb.app.dns_name}" },
+        { name = "LANGFUSE_BASE_URL", value = var.langfuse_base_url },
       ]
       secrets = [
         for name, secret in aws_secretsmanager_secret.app_secrets :

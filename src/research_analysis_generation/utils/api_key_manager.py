@@ -14,7 +14,8 @@ class ApiKeyManager:
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
             "TAVILY_API_KEY": os.getenv("TAVILY_API_KEY"),
-            "LANGCHAIN_API_KEY": os.getenv("LANGCHAIN_API_KEY"),
+            "LANGFUSE_PUBLIC_KEY": os.getenv("LANGFUSE_PUBLIC_KEY"),
+            "LANGFUSE_SECRET_KEY": os.getenv("LANGFUSE_SECRET_KEY"),
         }
 
         log.info("Initializing ApiKeyManager")
@@ -26,24 +27,9 @@ class ApiKeyManager:
             else:
                 log.warning(f"{key} is missing in environment variables")
 
-        self._configure_tracing()
-
-    def _configure_tracing(self):
-        """
-        Enable LangSmith tracing for every LangChain/LangGraph call in this process
-        when a LangSmith API key is available. LangChain reads these as plain env
-        vars, so setting them here (once, at startup) is enough to trace every
-        agent's calls automatically — no per-call instrumentation needed.
-        """
-        langsmith_key = self.api_keys.get("LANGCHAIN_API_KEY")
-        if not langsmith_key:
-            log.info("LANGCHAIN_API_KEY not set — LangSmith tracing disabled")
-            return
-
-        os.environ["LANGCHAIN_TRACING_V2"] = "true"
-        os.environ["LANGCHAIN_API_KEY"] = langsmith_key
-        os.environ.setdefault("LANGCHAIN_PROJECT", "research-analysis-generation")
-        log.info("LangSmith tracing enabled", project=os.environ["LANGCHAIN_PROJECT"])
+    def has_langfuse(self) -> bool:
+        """True if both Langfuse keys are present, so tracing can be enabled."""
+        return bool(self.api_keys.get("LANGFUSE_PUBLIC_KEY") and self.api_keys.get("LANGFUSE_SECRET_KEY"))
 
     def get(self, key: str):
         """

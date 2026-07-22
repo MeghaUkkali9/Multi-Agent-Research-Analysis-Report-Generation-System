@@ -8,7 +8,8 @@ locals {
     "OPENAI_API_KEY",
     "GROQ_API_KEY",
     "TAVILY_API_KEY",
-    "LANGCHAIN_API_KEY",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_SECRET_KEY",
   ]
 }
 

@@ -3,6 +3,7 @@ import os
 import threading
 from fastapi.responses import FileResponse
 from research_analysis_generation.utils.model_loader import ModelLoader
+from research_analysis_generation.utils.api_key_manager import ApiKeyManager
 from research_analysis_generation.workflow.workflow import ReportGenerator as AutonomousReportGenerator
 from research_analysis_generation.logger import GLOBAL_LOGGER
 from research_analysis_generation.exception.custom_exception import ResearchAnalysisException
@@ -14,9 +15,35 @@ class ReportService:
     def __init__(self):
         self.llm = ModelLoader().load_llm()
         self.reporter = AutonomousReportGenerator(self.llm)
-        self.reporter.memory = _shared_memory 
+        self.reporter.memory = _shared_memory
         self.graph = self.reporter.build_graph()
         self.logger = GLOBAL_LOGGER.bind(module="ReportService")
+
+        self.langfuse_handler = None
+        if ApiKeyManager().has_langfuse():
+            from langfuse.langchain import CallbackHandler
+            self.langfuse_handler = CallbackHandler()
+            self.logger.info("Langfuse tracing enabled")
+        else:
+            self.logger.info("Langfuse keys not set — tracing disabled")
+
+    def _config(self, thread: dict) -> dict:
+        """Graph run config for a thread, with Langfuse tracing attached if configured."""
+        config = dict(thread)
+        if self.langfuse_handler:
+            config["callbacks"] = [self.langfuse_handler]
+        return config
+
+    def _flush_langfuse(self):
+        """
+        Langfuse batches and exports traces on a background timer. This is a
+        short-lived request/response app, not a long-running batch job, so
+        force a flush after each run instead of hoping the timer fires before
+        the process exits or the task gets recycled.
+        """
+        if self.langfuse_handler:
+            from langfuse import get_client
+            get_client().flush()
 
     def start_report_generation(self, topic: str, max_analysts: int):
         """
@@ -30,8 +57,9 @@ class ReportService:
             self.logger.info("Starting report pipeline", topic=topic, thread_id=thread_id)
 
             last_state = {}
-            for last_state in self.graph.stream({"topic": topic, "max_analysts": max_analysts}, thread, stream_mode="values"):
+            for last_state in self.graph.stream({"topic": topic, "max_analysts": max_analysts}, self._config(thread), stream_mode="values"):
                 pass
+            self._flush_langfuse()
 
             return {"thread_id": thread_id, "analysts": last_state.get("analysts", [])}
         except Exception as e:
@@ -44,8 +72,9 @@ class ReportService:
             thread = {"configurable": {"thread_id": thread_id}}
             self.graph.update_state(thread, {"human_analyst_feedback": feedback}, as_node="human_feedback")
             self.logger.info("Feedback updated", thread_id=thread_id)
-            for _ in self.graph.stream(None, thread, stream_mode="values"):
+            for _ in self.graph.stream(None, self._config(thread), stream_mode="values"):
                 pass
+            self._flush_langfuse()
             return {"message": "Feedback processed successfully"}
         except Exception as e:
             self.logger.error("Error updating feedback", error=str(e))

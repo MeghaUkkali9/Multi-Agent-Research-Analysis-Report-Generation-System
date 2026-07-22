@@ -78,8 +78,8 @@ There's a `render.yaml` file in this repo, so nothing needs setting up by hand:
    point it at this repo. Render reads `render.yaml` and builds the service
    itself.
 3. It'll ask for `OPENAI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY` (required)
-   and `LANGCHAIN_API_KEY` (optional, only for tracing). Check `.env.example`
-   if you forget what each one is.
+   and `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` (optional, only for
+   tracing). Check `.env.example` if you forget what each one is.
 4. Once it's live you get a URL like `your-app.onrender.com`. Go back into the
    env vars, set `ALLOWED_ORIGINS` to that URL, redeploy.
 
@@ -128,9 +128,10 @@ the load balancer. Destroy it when it's not being used.
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/OPENAI_API_KEY --secret-string "sk-..."
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/GROQ_API_KEY --secret-string "gsk_..."
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/TAVILY_API_KEY --secret-string "tvly-..."
-   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/LANGCHAIN_API_KEY --secret-string "lsv2_..."
+   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/LANGFUSE_PUBLIC_KEY --secret-string "pk-lf-..."
+   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/LANGFUSE_SECRET_KEY --secret-string "sk-lf-..."
    ```
-   All four need something in them, even a placeholder — ECS won't start the
+   All five need something in them, even a placeholder — ECS won't start the
    task otherwise.
 
 6. Push to `main`. GitHub Actions builds the image, pushes it to ECR, deploys
