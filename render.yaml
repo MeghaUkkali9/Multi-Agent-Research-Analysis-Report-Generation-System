@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: multi-agent-report-generator
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn research_analysis_generation.api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: LANGCHAIN_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: openai
+      - key: ALLOWED_ORIGINS
+        sync: false
