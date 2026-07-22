@@ -6,8 +6,14 @@
 
 Running live on AWS:
 
-![Feedback step](docs/screenshot-generate.png)
-![Generating report](docs/screenshot-processing.png)
+**Review the analyst team before interviews start:**
+![Reviewing the analyst team](images/agents_1.png)
+
+**Approve the team (or redirect it) to start interviews:**
+![Feedback form and approve button](images/agents_2.png)
+
+**Final report, ready to download:**
+![Final report ready, download DOCX/PDF](images/report_.png)
 
 ## Run Locally
 
