@@ -14,6 +14,7 @@ locals {
 }
 
 resource "aws_secretsmanager_secret" "app_secrets" {
-  for_each = toset(local.secret_names)
-  name     = "${var.project_name}/${each.value}"
+  for_each                = toset(local.secret_names)
+  name                    = "${var.project_name}/${each.value}"
+  recovery_window_in_days = 0
 }
