@@ -4,6 +4,11 @@ resource "aws_lb" "app" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = data.aws_subnets.default.ids
+
+  # Default is 60s. Report generation runs synchronously and can take a few
+  # minutes (multiple analysts, multi-turn interviews, two review passes per
+  # section) — without this, the ALB returns 504 well before the app is done.
+  idle_timeout = 600
 }
 
 resource "aws_lb_target_group" "app" {
