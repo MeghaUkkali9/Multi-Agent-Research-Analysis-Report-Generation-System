@@ -1,4 +1,5 @@
 # Multi-Agent Research Analysis Report Generation System
+**Live demo:** https://multi-agent-report-generator-nzv2.onrender.com/
 
 ## Setup Instructions
 
@@ -113,6 +114,97 @@ source .venv/bin/activate
 ```
 uvicorn research_analysis_generation.api.main:app --reload
 ```
+
+## Deploy for Free (Render)
+
+This repo includes a `render.yaml` blueprint, so deploying is mostly clicking
+buttons rather than configuring anything by hand:
+
+1. Push this repo to GitHub if it isn't already (`origin` is already set up).
+2. Go to [render.com](https://render.com), sign up, and choose
+   **New > Blueprint**, then point it at this repo. Render reads `render.yaml`
+   and sets up the web service automatically.
+3. When prompted, fill in the env vars it asks for: `OPENAI_API_KEY`,
+   `GROQ_API_KEY`, `TAVILY_API_KEY` (required), `LANGCHAIN_API_KEY` (optional,
+   for tracing). See `.env.example` for what each one is.
+4. Once it's live, Render gives a URL like `your-app.onrender.com`. Go back
+   into the service's env vars and set `ALLOWED_ORIGINS` to that URL, then
+   redeploy.
+
+**Be upfront about the free-tier limitations, don't oversell them:**
+- The free instance spins down after inactivity — the first request after
+  that can take 30-60 seconds to wake back up.
+- The filesystem is not persistent. `users.db` (signups) and generated
+  reports both reset whenever the service restarts or redeploys. Fine for a
+  demo where someone signs up, generates a report, and downloads it in one
+  sitting — not fine as durable storage. Say this plainly if asked, rather
+  than let someone discover it by losing their account.
+
+## Deploy to AWS (CI/CD with Terraform + GitHub Actions)
+
+This is the "real" deployment path — Terraform provisions the AWS infra
+(ECS Fargate, ALB, ECR, IAM), and a GitHub Actions workflow builds, pushes,
+and deploys a new image on every push to `main`. Costs real money the whole
+time it's running (~$25-30/month, mostly the load balancer) — there's no
+free tier for this like Render. Destroy it when you're not demoing.
+
+**One-time setup:**
+
+1. Install [Terraform](https://developer.hashicorp.com/terraform/install) and
+   the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+   locally, then `aws configure` with an IAM user that has enough permissions
+   to create the resources below (`AdministratorAccess` is the simplest way
+   to start; tighten it later once it's working).
+
+2. Provision the infra:
+   ```bash
+   cd infra
+   terraform init
+   terraform apply
+   ```
+   Review the plan, type `yes`. This creates: an ECR repo, an ECS Fargate
+   cluster/service/task definition, an Application Load Balancer, IAM roles,
+   empty Secrets Manager containers for the API keys, and an IAM role that
+   GitHub Actions can assume via OIDC (no AWS access keys stored in GitHub).
+
+3. Note two outputs from the apply: `github_actions_role_arn` and `app_url`.
+
+4. In the GitHub repo: **Settings > Secrets and variables > Actions >
+   Variables**, add a repository variable named `AWS_DEPLOY_ROLE_ARN` set to
+   the `github_actions_role_arn` output.
+
+5. Fill in the real secret values (Terraform only created empty containers —
+   real keys never touch a `.tf` file or Terraform state):
+   ```bash
+   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/OPENAI_API_KEY --secret-string "sk-..."
+   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/GROQ_API_KEY --secret-string "gsk_..."
+   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/TAVILY_API_KEY --secret-string "tvly-..."
+   aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/LANGCHAIN_API_KEY --secret-string "lsv2_..."
+   ```
+   All four need *some* value (even a placeholder for the LangSmith one) —
+   ECS fails to start the task if a referenced secret has no value at all.
+
+6. Push to `main`. GitHub Actions builds the image, pushes it to ECR, and
+   deploys it to ECS. The service sits at 0 healthy tasks until this first
+   run finishes — that's expected, not broken; the infra goes up before the
+   app does.
+
+7. Visit `app_url` once the workflow finishes.
+
+**To stop paying for it:** `terraform destroy` in `infra/`. This removes
+everything, including the ECR images and the Secrets Manager values — bring
+it back with `terraform apply` + re-running step 5 + a push (or just
+re-running the last successful GitHub Actions workflow).
+
+**Be upfront about what this setup doesn't do:**
+- No HTTPS — the ALB only serves plain HTTP. Adding TLS needs a real domain
+  name and an ACM certificate, skipped here to keep scope focused on the
+  CI/CD pipeline itself.
+- No persistent storage — same limitation as the Render deploy, if anything
+  more so: `users.db` and generated reports live on the Fargate task's local
+  disk, which disappears on every redeploy or task restart. Durable storage
+  would mean swapping SQLite for RDS and generated files for S3 — a real
+  application change, not an infra one, and out of scope here.
 
 ## How the Multi-Agent Part Works
 

@@ -221,3 +221,10 @@ otherwise
 .DS_Store
 
 notes.txt
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/*.tfvars
+infra/.terraform.tfstate.lock.info
