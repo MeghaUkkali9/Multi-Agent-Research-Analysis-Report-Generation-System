@@ -89,13 +89,6 @@ There's a `render.yaml` file in this repo, so nothing needs setting up by hand:
 4. Once it's live you get a URL like `your-app.onrender.com`. Go back into the
    env vars, set `ALLOWED_ORIGINS` to that URL, redeploy.
 
-Two things worth knowing about the free tier, so nothing looks broken:
-- It goes to sleep after a while with no traffic. First request after that
-  takes 30-60 seconds to wake up.
-- Nothing is saved permanently. Every restart wipes `users.db` and any
-  generated reports. Fine if someone signs up, makes a report, downloads it,
-  all in one sitting — not fine as real storage. Just know that going in.
-
 ## Deploy to AWS (CI/CD with Terraform + GitHub Actions)
 
 This is the real deployment setup. Terraform builds the AWS side (ECS
@@ -109,8 +102,7 @@ the load balancer. Destroy it when it's not being used.
 1. Install [Terraform](https://developer.hashicorp.com/terraform/install) and
    the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html),
    then run `aws configure` with an IAM user that can create these resources.
-   `AdministratorAccess` is the easiest way to start — tighten it later.
-
+  
 2. Set it up:
    ```bash
    cd infra
@@ -147,14 +139,11 @@ the load balancer. Destroy it when it's not being used.
 7. Once the workflow finishes, open `app_url`.
 
 **To stop paying for it:** run `terraform destroy` inside `infra/`. That
-deletes everything, including the pushed images and the secret values —
-bringing it back means `terraform apply`, redoing step 5, and pushing again
-(or just re-running the last GitHub Actions run).
+deletes everything, including the pushed images and the secret values.
 
 A few things this setup doesn't do:
 - No HTTPS. The load balancer only does plain HTTP. Adding HTTPS needs a
-  real domain and a certificate — skipped here to keep the focus on the
-  CI/CD part itself.
+  real domain and a certificate.
 - Nothing is saved permanently, same as Render, actually worse: `users.db`
   and generated reports live on the container's own disk, which disappears
   every time it redeploys or restarts. Making that permanent means switching
