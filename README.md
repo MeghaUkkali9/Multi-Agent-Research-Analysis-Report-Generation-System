@@ -118,105 +118,95 @@ uvicorn research_analysis_generation.api.main:app --reload
 
 ## Deploy for Free (Render)
 
-This repo includes a `render.yaml` blueprint, so deploying is mostly clicking
-buttons rather than configuring anything by hand:
+There's a `render.yaml` file in this repo, so nothing needs setting up by hand:
 
-1. Push this repo to GitHub if it isn't already (`origin` is already set up).
-2. Go to [render.com](https://render.com), sign up, and choose
-   **New > Blueprint**, then point it at this repo. Render reads `render.yaml`
-   and sets up the web service automatically.
-3. When prompted, fill in the env vars it asks for: `OPENAI_API_KEY`,
-   `GROQ_API_KEY`, `TAVILY_API_KEY` (required), `LANGCHAIN_API_KEY` (optional,
-   for tracing). See `.env.example` for what each one is.
-4. Once it's live, Render gives a URL like `your-app.onrender.com`. Go back
-   into the service's env vars and set `ALLOWED_ORIGINS` to that URL, then
-   redeploy.
+1. Push this repo to GitHub (already done, `origin` is set up).
+2. Go to [render.com](https://render.com), sign up, click **New > Blueprint**,
+   point it at this repo. Render reads `render.yaml` and builds the service
+   itself.
+3. It'll ask for `OPENAI_API_KEY`, `GROQ_API_KEY`, `TAVILY_API_KEY` (required)
+   and `LANGCHAIN_API_KEY` (optional, only for tracing). Check `.env.example`
+   if you forget what each one is.
+4. Once it's live you get a URL like `your-app.onrender.com`. Go back into the
+   env vars, set `ALLOWED_ORIGINS` to that URL, redeploy.
 
-**Be upfront about the free-tier limitations, don't oversell them:**
-- The free instance spins down after inactivity — the first request after
-  that can take 30-60 seconds to wake back up.
-- The filesystem is not persistent. `users.db` (signups) and generated
-  reports both reset whenever the service restarts or redeploys. Fine for a
-  demo where someone signs up, generates a report, and downloads it in one
-  sitting — not fine as durable storage. Say this plainly if asked, rather
-  than let someone discover it by losing their account.
+Two things worth knowing about the free tier, so nothing looks broken:
+- It goes to sleep after a while with no traffic. First request after that
+  takes 30-60 seconds to wake up.
+- Nothing is saved permanently. Every restart wipes `users.db` and any
+  generated reports. Fine if someone signs up, makes a report, downloads it,
+  all in one sitting — not fine as real storage. Just know that going in.
 
 ## Deploy to AWS (CI/CD with Terraform + GitHub Actions)
 
-This is the "real" deployment path — Terraform provisions the AWS infra
-(ECS Fargate, ALB, ECR, IAM), and a GitHub Actions workflow builds, pushes,
-and deploys a new image on every push to `main`. Costs real money the whole
-time it's running (~$25-30/month, mostly the load balancer) — there's no
-free tier for this like Render. Destroy it when you're not demoing.
+This is the real deployment setup. Terraform builds the AWS side (ECS
+Fargate, load balancer, ECR, IAM), and GitHub Actions builds and deploys a
+new version every time something's pushed to `main`. Unlike Render, this
+costs real money the whole time it's running — about $25-30/month, mostly
+the load balancer. Destroy it when it's not being used.
 
 **One-time setup:**
 
 1. Install [Terraform](https://developer.hashicorp.com/terraform/install) and
-   the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-   locally, then `aws configure` with an IAM user that has enough permissions
-   to create the resources below (`AdministratorAccess` is the simplest way
-   to start; tighten it later once it's working).
+   the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html),
+   then run `aws configure` with an IAM user that can create these resources.
+   `AdministratorAccess` is the easiest way to start — tighten it later.
 
-2. Provision the infra:
+2. Set it up:
    ```bash
    cd infra
    terraform init
    terraform apply
    ```
-   Review the plan, type `yes`. This creates: an ECR repo, an ECS Fargate
-   cluster/service/task definition, an Application Load Balancer, IAM roles,
-   empty Secrets Manager containers for the API keys, and an IAM role that
-   GitHub Actions can assume via OIDC (no AWS access keys stored in GitHub).
+   Look over what it's about to create, type `yes`. This makes: an ECR repo,
+   an ECS Fargate cluster/service, a load balancer, IAM roles, empty Secrets
+   Manager slots for the API keys, and a role GitHub Actions can use through
+   OIDC — so no AWS keys ever sit in GitHub.
 
-3. Note two outputs from the apply: `github_actions_role_arn` and `app_url`.
+3. Grab two things from the output: `github_actions_role_arn` and `app_url`.
 
-4. In the GitHub repo: **Settings > Secrets and variables > Actions >
-   Secrets**, add a repository secret named `AWS_DEPLOY_ROLE_ARN` set to
-   the `github_actions_role_arn` output. (It's not actually sensitive — the
-   OIDC trust policy is what gates access, not the ARN itself — but it lives
-   as a Secret here, and the workflow reads it as `secrets.AWS_DEPLOY_ROLE_ARN`
-   to match.)
+4. In GitHub: **Settings > Secrets and variables > Actions > Secrets**, add
+   one named `AWS_DEPLOY_ROLE_ARN` with the `github_actions_role_arn` value.
 
-5. Fill in the real secret values (Terraform only created empty containers —
-   real keys never touch a `.tf` file or Terraform state):
+5. Put the real API keys into Secrets Manager (Terraform only made empty
+   placeholders — real keys never touch a `.tf` file or get stored in
+   Terraform state):
    ```bash
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/OPENAI_API_KEY --secret-string "sk-..."
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/GROQ_API_KEY --secret-string "gsk_..."
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/TAVILY_API_KEY --secret-string "tvly-..."
    aws secretsmanager put-secret-value --secret-id multi-agent-report-gen/LANGCHAIN_API_KEY --secret-string "lsv2_..."
    ```
-   All four need *some* value (even a placeholder for the LangSmith one) —
-   ECS fails to start the task if a referenced secret has no value at all.
+   All four need something in them, even a placeholder — ECS won't start the
+   task otherwise.
 
-6. Push to `main`. GitHub Actions builds the image, pushes it to ECR, and
-   deploys it to ECS. The service sits at 0 healthy tasks until this first
-   run finishes — that's expected, not broken; the infra goes up before the
-   app does.
+6. Push to `main`. GitHub Actions builds the image, pushes it to ECR, deploys
+   it. Right before this first run, the service shows 0 healthy tasks —
+   that's normal, the infra exists before the app does.
 
-7. Visit `app_url` once the workflow finishes.
+7. Once the workflow finishes, open `app_url`.
 
-**To stop paying for it:** `terraform destroy` in `infra/`. This removes
-everything, including the ECR images and the Secrets Manager values — bring
-it back with `terraform apply` + re-running step 5 + a push (or just
-re-running the last successful GitHub Actions workflow).
+**To stop paying for it:** run `terraform destroy` inside `infra/`. That
+deletes everything, including the pushed images and the secret values —
+bringing it back means `terraform apply`, redoing step 5, and pushing again
+(or just re-running the last GitHub Actions run).
 
-**Be upfront about what this setup doesn't do:**
-- No HTTPS — the ALB only serves plain HTTP. Adding TLS needs a real domain
-  name and an ACM certificate, skipped here to keep scope focused on the
-  CI/CD pipeline itself.
-- No persistent storage — same limitation as the Render deploy, if anything
-  more so: `users.db` and generated reports live on the Fargate task's local
-  disk, which disappears on every redeploy or task restart. Durable storage
-  would mean swapping SQLite for RDS and generated files for S3 — a real
-  application change, not an infra one, and out of scope here.
+A few things this setup doesn't do:
+- No HTTPS. The load balancer only does plain HTTP. Adding HTTPS needs a
+  real domain and a certificate — skipped here to keep the focus on the
+  CI/CD part itself.
+- Nothing is saved permanently, same as Render, actually worse: `users.db`
+  and generated reports live on the container's own disk, which disappears
+  every time it redeploys or restarts. Making that permanent means switching
+  to RDS for the database and S3 for the files — that's an app change, not
+  an infra one, so it's not done here.
 
 ## How the Multi-Agent Part Works
 
-1. **Create the analyst team.** One LLM call creates a few analyst personas —
-   each with a different name and a different angle on the topic (example: one
-   focused on tech, one on business impact). Right after this, the pipeline
-   pauses so someone can look at the team and edit or approve it before any
-   interviews (the expensive part) start.
+1. **Create the analyst team.** One LLM call makes a few analyst personas —
+   different names, different angles on the topic (say, one on tech, one on
+   business impact). Then it pauses so someone can look at the team and edit
+   or approve it before the expensive part (the interviews) starts.
 
 2. **Each analyst interviews an expert, all at the same time.** Every analyst
    gets its own private interview. These run in parallel — they are separate
@@ -267,16 +257,17 @@ all sections combined into one report + intro + conclusion
 final report
 ```
 
-**Why this is actually multi-agent and not just one big prompt:**
+Why this counts as multi-agent, not just one big prompt:
 
-- Each analyst is a separate persona with its own goals, not one LLM answering
-  everything the same way.
+- Each analyst is its own persona with its own goals, not one LLM doing the
+  same thing every time.
 - Interviews run in parallel, each with its own state, no shared conversation.
-- Inside one interview, the same LLM plays two roles that don't trust each other
-  blindly — the analyst pushes for specific answers, the expert only answers from
+- Inside one interview, the same LLM plays two roles that don't just trust
+  each other — the analyst pushes for specifics, the expert only answers from
   what was actually searched.
-- Editor and fact-checker are separate roles, checking the writer's work from two
+- Editor and fact-checker are separate roles too, checking the work from two
   different angles instead of one agent grading itself.
 - The report writer never sees the raw interviews, only the finished sections.
-- A human gets a checkpoint before the expensive part (all the interviews) runs.
+- A human gets a chance to step in before the expensive part (all the
+  interviews) runs.
 
