@@ -9,84 +9,40 @@ Running live on AWS:
 ![Feedback step](docs/screenshot-generate.png)
 ![Generating report](docs/screenshot-processing.png)
 
-## Setup Instructions
+## Run Locally
 
-### 1. Clone the Repository
+If it's already set up on this machine (venv, dependencies, `.env` all exist):
+
+```bash
+source .venv/bin/activate
+uvicorn research_analysis_generation.api.main:app --reload
+```
+
+Then open `http://127.0.0.1:8000`.
+
+From a fresh clone, set up first:
 
 ```bash
 git clone https://github.com/MeghaUkkali9/Multi-Agent-Research-Analysis-Report-Generation-System.git
 cd Multi-Agent-Research-Analysis-Report-Generation-System
-```
-
----
-
-### 2. Create Virtual Environment (using uv)
-
-```bash
 uv venv .venv --python 3.11
 source .venv/bin/activate
-```
-
----
-
-### 3. Install Dependencies
-
-```bash
 uv pip install -r requirements.txt
-```
-
----
-
-### 4. Install Project as Package 
-
-```bash
 pip install -e .
 ```
 
-This enables imports like:
+Then create a `.env` file with your API keys — `OPENAI_API_KEY`, `GROQ_API_KEY`,
+`TAVILY_API_KEY` are required, see `.env.example` for the full list. Then run
+the two commands above.
 
-```python
-from research_analysis_generation.utils.model_loader import ModelLoader
-```
-
----
-
-### 5. Set Environment Variables
-
-Create a `.env` file in project root:
-
-```env
-OPENAI_API_KEY=your_openai_key
-GROQ_API_KEY=your_groq_key
-```
-
----
-
-### 6. Verify Configuration
-
-Ensure config file exists:
-
-```
-src/research_analysis_generation/config/config.yml
-```
-
----
-
-## Run Test (Model Loader)
-
-Run the module:
+Quick check that the model loader and keys actually work, before running the
+full app:
 
 ```bash
 python -m research_analysis_generation.utils.model_loader
 ```
-
----
-
-## Expected Output
-
-* Embedding model loads successfully
-* LLM responds to test prompt
-* Logs show successful initialization
+Should print an embedding result and an LLM response — if either fails, the
+`.env` keys are the first thing to check.
 
 ---
 
@@ -112,16 +68,6 @@ src/
 * Uses `src/` layout (best practice for Python packaging)
 * Requires `pip install -e .` for correct imports
 * Avoid running files directly via absolute paths
-
-## Run Application
-Get into virtual environment:
-```
-source .venv/bin/activate
-```
-
-```
-uvicorn research_analysis_generation.api.main:app --reload
-```
 
 ## Deploy for Free (Render)
 

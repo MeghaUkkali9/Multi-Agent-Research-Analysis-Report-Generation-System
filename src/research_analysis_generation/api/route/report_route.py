@@ -93,6 +93,7 @@ def generate_report(request: Request, topic: str = Form(...), user: str = Depend
             "topic": topic,
             "feedback": "",
             "thread_id": thread_id,
+            "analysts": result.get("analysts", []),
         },
     )
 

@@ -19,16 +19,21 @@ class ReportService:
         self.logger = GLOBAL_LOGGER.bind(module="ReportService")
 
     def start_report_generation(self, topic: str, max_analysts: int):
-        """Trigger the autonomous report pipeline."""
+        """
+        Kick off the pipeline. This only runs create_analyst before hitting the
+        human_feedback interrupt — no report exists yet at this point, just an
+        analyst team waiting for review.
+        """
         try:
             thread_id = str(uuid.uuid4())
             thread = {"configurable": {"thread_id": thread_id}}
             self.logger.info("Starting report pipeline", topic=topic, thread_id=thread_id)
 
-            for _ in self.graph.stream({"topic": topic, "max_analysts": max_analysts}, thread, stream_mode="values"):
+            last_state = {}
+            for last_state in self.graph.stream({"topic": topic, "max_analysts": max_analysts}, thread, stream_mode="values"):
                 pass
 
-            return {"thread_id": thread_id, "message": "Pipeline initiated successfully."}
+            return {"thread_id": thread_id, "analysts": last_state.get("analysts", [])}
         except Exception as e:
             self.logger.error("Error initiating report generation", error=str(e))
             raise ResearchAnalysisException("Failed to start report generation", e)

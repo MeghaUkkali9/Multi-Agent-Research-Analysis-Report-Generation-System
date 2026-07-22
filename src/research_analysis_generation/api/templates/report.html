@@ -8,7 +8,22 @@
       <h2>Topic: {{ topic }}</h2>
 
       {% if not pdf_path %}
-        <p class="subtitle">Your AI-generated report is ready! You can refine it below 👇</p>
+        <p class="subtitle">
+          No report yet — this is the analyst team picked for "{{ topic }}".
+          Each one will separately interview an expert before any writing happens.
+        </p>
+
+        {% if analysts %}
+          <div class="analyst-list">
+            {% for a in analysts %}
+              <div class="analyst-card">
+                <strong>{{ a.name }}</strong> — {{ a.role }}
+                <div class="analyst-affiliation">{{ a.affiliation }}</div>
+                <p class="analyst-description">{{ a.description }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         <!-- Feedback form -->
         <form id="feedbackForm" method="post" action="/submit_feedback">
@@ -17,18 +32,19 @@
           <!-- Hidden thread_id (needed for workflow continuity) -->
           <input type="hidden" name="thread_id" value="{{ thread_id }}">
 
-          <!-- Feedback box -->
+          <label for="feedback">Redirect the team? (optional)</label>
           <textarea
+            id="feedback"
             name="feedback"
-            rows="6"
-            placeholder="Enter feedback here...">{{ feedback }}</textarea>
+            rows="4"
+            placeholder="e.g. &quot;add someone focused on cost&quot; — leave blank to continue as-is">{{ feedback }}</textarea>
 
-          <!-- Submit button -->
-          <button type="submit">Submit Feedback</button>
+          <button type="submit" style="margin-top: 0.75rem;">Approve &amp; Start Interviews</button>
         </form>
 
         <p class="note">
-          Tip: Provide specific feedback like “Add more technical explanation” or “Focus on real-world examples”.
+          Interviews, writing, and review all happen after this — it takes a
+          couple of minutes.
         </p>
 
       {% else %}

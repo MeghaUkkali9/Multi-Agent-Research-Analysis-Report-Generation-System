@@ -182,6 +182,34 @@ a:hover {
   color: var(--muted);
 }
 
+.analyst-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.analyst-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  font-size: 0.9rem;
+}
+
+.analyst-affiliation {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.analyst-description {
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin: 6px 0 0;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
