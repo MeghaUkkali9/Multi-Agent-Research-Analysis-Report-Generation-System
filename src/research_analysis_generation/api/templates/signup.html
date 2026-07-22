@@ -1,9 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Signup | Autonomous Report Generator</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
+{% extends "base.html" %}
+
+{% block title %}Signup | Autonomous Report Generator{% endblock %}
+
+{% block topbar %}{% endblock %}
+
+{% block extra_style %}
   <style>
     .password-wrapper {
       position: relative;
@@ -33,8 +34,9 @@
       margin-top: 4px;
     }
   </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
   <div class="auth-container">
     <div class="auth-card">
       <h2>Signup</h2>
@@ -79,7 +81,9 @@
       </p>
     </div>
   </div>
+{% endblock %}
 
+{% block extra_script %}
   <script>
     const togglePassword = document.getElementById("togglePassword");
     const passwordField = document.getElementById("password");
@@ -100,5 +104,4 @@
       return true;
     }
   </script>
-</body>
-</html>
+{% endblock %}

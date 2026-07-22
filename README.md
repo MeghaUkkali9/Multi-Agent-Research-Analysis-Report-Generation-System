@@ -2,6 +2,13 @@
 **Live demo:** https://multi-agent-report-generator-nzv2.onrender.com/
 **Live demo (AWS, CI/CD via GitHub Actions + Terraform):** http://multi-agent-report-gen-alb-1563331842.us-east-1.elb.amazonaws.com/ — note it's `http://`, not `https://` (no TLS set up yet), and may be torn down between demos to avoid ongoing cost.
 
+## Screenshots
+
+Running live on AWS:
+
+![Feedback step](docs/screenshot-generate.png)
+![Generating report](docs/screenshot-processing.png)
+
 ## Setup Instructions
 
 ### 1. Clone the Repository

@@ -1,10 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Login | Autonomous Report Generator</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
+{% extends "base.html" %}
 
+{% block title %}Login | Autonomous Report Generator{% endblock %}
+
+{% block topbar %}{% endblock %}
+
+{% block extra_style %}
   <style>
     .password-wrapper {
       position: relative;
@@ -29,9 +29,9 @@
       color: #2563eb;
     }
   </style>
-</head>
+{% endblock %}
 
-<body>
+{% block content %}
   <div class="auth-container">
     <div class="auth-card">
       <h2>Login</h2>
@@ -68,7 +68,9 @@
       </p>
     </div>
   </div>
+{% endblock %}
 
+{% block extra_script %}
   <script>
     const toggleLoginPassword = document.getElementById("toggleLoginPassword");
     const loginPassword = document.getElementById("login-password");
@@ -83,5 +85,4 @@
         type === "password" ? "👁" : "🙈";
     });
   </script>
-</body>
-</html>
+{% endblock %}
