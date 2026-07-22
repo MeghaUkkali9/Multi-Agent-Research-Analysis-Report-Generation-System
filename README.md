@@ -170,8 +170,11 @@ free tier for this like Render. Destroy it when you're not demoing.
 3. Note two outputs from the apply: `github_actions_role_arn` and `app_url`.
 
 4. In the GitHub repo: **Settings > Secrets and variables > Actions >
-   Variables**, add a repository variable named `AWS_DEPLOY_ROLE_ARN` set to
-   the `github_actions_role_arn` output.
+   Secrets**, add a repository secret named `AWS_DEPLOY_ROLE_ARN` set to
+   the `github_actions_role_arn` output. (It's not actually sensitive — the
+   OIDC trust policy is what gates access, not the ARN itself — but it lives
+   as a Secret here, and the workflow reads it as `secrets.AWS_DEPLOY_ROLE_ARN`
+   to match.)
 
 5. Fill in the real secret values (Terraform only created empty containers —
    real keys never touch a `.tf` file or Terraform state):
